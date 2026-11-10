@@ -449,23 +449,32 @@ Decisions and deviations from the text above:
 
 ### Components
 
-- [ ] `Dropzone`: drag and drop, file picker, paste, keyboard access.
-- [ ] `HeatmapViewer`: heatmap over the original, opacity slider, A/B toggle.
-- [ ] `ResultCard`: count, level badge, local concentration, inference time, caveat line.
-- [ ] `ScaleLegend`: blue to red ramp labelled from `max_concentration`, with the image-space note.
-- [ ] `SampleGallery`: 3 to 4 bundled test-set images.
-- [ ] `ErrorBanner`: plain-language messages for 413, 415, 400, and 503.
-- [ ] Model switch for Part A and Part B, read from `/api/metadata`.
+- [x] `Dropzone`: drag and drop, file picker, paste, keyboard access.
+- [x] `HeatmapViewer`: heatmap over the original, opacity slider, A/B toggle.
+- [x] `ResultCard`: count, level badge, local concentration, inference time, caveat line.
+- [x] `ScaleLegend`: blue to red ramp labelled from `max_concentration`, with the image-space note.
+- [x] `SampleGallery`: 3 to 4 bundled test-set images.
+- [x] `ErrorBanner`: plain-language messages for 413, 415, 400, and 503.
+- [x] Model switch for Part A and Part B, read from `/api/metadata`.
 
 ### Behaviour
 
-- [ ] Implement the state machine `idle`, `uploading`, `inferring`, `done`, `error`.
-- [ ] Cancel a superseded request with `AbortController`.
-- [ ] Show the level with an icon and text. Avoid colour as the only signal.
-- [ ] Add alt text to every image.
-- [ ] Read the API base URL from `VITE_API_URL`.
+- [x] Implement the state machine `idle`, `uploading`, `inferring`, `done`, `error`.
+- [x] Cancel a superseded request with `AbortController`.
+- [x] Show the level with an icon and text. Avoid colour as the only signal.
+- [x] Add alt text to every image.
+- [x] Read the API base URL from `VITE_API_URL`.
 
 Gate G8: build the app, upload an image against the real API, confirm the heatmap renders.
+
+#### Phase 7 status: built, G8 met through the dev proxy (no browser run)
+
+- **Evidence:** `npm run build`, `npm run lint` and `npm test` (15 tests) pass. Against the real API (uvicorn, the 10-image Part B checkpoint, Vite dev server proxying `/api`): `/api/metadata` and `POST /api/predict` on a bundled sample returned 200 with count 31.1, level Low and a valid `data:image/png;base64` heatmap; I decoded it and it shows the overlay on the right people. A `.txt` upload returned a clean 415 through the proxy.
+- **Not verified:** the page was never opened in a real browser, so drag and drop, paste, the opacity slider, the A/B toggle, and focus rings are covered only by the component tests and by reading the code. Open `npm run dev` once and click through before treating G8 as fully met.
+- **Decisions:** Tailwind v4 via `@tailwindcss/vite`. `VITE_API_URL` is empty by default, so the client calls same-origin `/api` (Vite proxies it in dev; nginx will in Docker, so no CORS). The returned heatmap is already blended with the photo, so "heatmap over the original" is the overlay stacked on the original with an opacity slider, and the A/B toggle switches between Heatmap and Original. The model switch is hidden when `/api/metadata` lists only one model, and changing it re-runs the current image. Four bundled samples (two Part A, two Part B test images, under 250 KB each) are displayed and run through the model for the demo only; they are not used for selection or calibration. Their ShanghaiTech licence terms need a README note (Phase 8).
+- **Levels:** the API returns four levels (Low, Medium, High, Critical); each has its own icon and text label.
+- **Open:** `web/Dockerfile` with nginx proxying `/api`, and the CI `web` job (DevOps section).
+
 
 ## Phase 8: Documentation and polish
 
