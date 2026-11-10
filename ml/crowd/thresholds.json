@@ -1,0 +1,29 @@
+{
+  "bands": {
+    "low": 85,
+    "medium": 166,
+    "high": 351,
+    "critical": 687
+  },
+  "quantiles": {
+    "p25": 85.0,
+    "p50": 166.0,
+    "p75": 350.75,
+    "p90": 687.2
+  },
+  "rule": "a band starts at its edge; counts below `medium` are Low",
+  "split": "train_data minus validation",
+  "parts_pooled": [
+    "part_A",
+    "part_B"
+  ],
+  "n_images": 630,
+  "n_validation_excluded": 70,
+  "validation_seed": 0,
+  "validation_fraction": 0.1,
+  "count_min": 12,
+  "count_max": 3138,
+  "git_sha": "007cb13",
+  "git_dirty": true,
+  "calibrated": "2026-11-09"
+}

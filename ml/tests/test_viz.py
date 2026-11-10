@@ -51,3 +51,18 @@ def test_overlay_blends_with_alpha_and_keeps_shape():
 def test_overlay_alpha_outside_unit_interval_still_returns_uint8(alpha):
     out, _ = overlay_heatmap(np.full((8, 8, 3), 100, np.uint8), np.ones((1, 1)), alpha=alpha)
     assert out.dtype == np.uint8
+
+
+def test_png_data_uri_roundtrips_pixels_exactly():
+    import base64
+
+    import cv2
+
+    from crowd.viz import to_png_data_uri
+
+    rgb = np.random.default_rng(0).integers(0, 255, (6, 9, 3), dtype=np.uint8)
+    uri = to_png_data_uri(rgb)
+    assert uri.startswith("data:image/png;base64,")
+    raw = np.frombuffer(base64.b64decode(uri.split(",", 1)[1]), np.uint8)
+    decoded = cv2.cvtColor(cv2.imdecode(raw, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+    assert np.array_equal(decoded, rgb)  # PNG is lossless; channel order preserved

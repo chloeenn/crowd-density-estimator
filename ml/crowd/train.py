@@ -25,6 +25,7 @@ from crowd.config import DatasetConfig, TrainConfig, preprocess_signature
 from crowd.data.dataset import CrowdDataset, Sample, discover_samples, train_val_split
 from crowd.device import get_device
 from crowd.engine import train_epoch, validate
+from crowd.levels import thresholds_sha
 from crowd.metrics import Metrics
 from crowd.models.csrnet import CSRNet
 from crowd.runs import (
@@ -133,7 +134,7 @@ def fit(cfg: TrainConfig, train_s: list[Sample], val_s: list[Sample]) -> dict:
             "val_rmse": val.rmse if val else None,
             "preprocess": preprocess_signature(cfg.part),
             "dataset_manifest_sha": manifest_sha,
-            "thresholds_sha": None,  # filled in by crowd.calibrate (Phase 5)
+            "thresholds_sha": thresholds_sha(),
         }
 
     train_loader, val_loader = make_loaders(cfg, train_s, val_s, device)

@@ -12,6 +12,7 @@ from crowd.checkpoint import load_checkpoint, save_checkpoint
 from crowd.config import preprocess_signature
 from crowd.data.dataset import CrowdDataset
 from crowd.engine import validate
+from crowd.levels import thresholds_sha
 from crowd.metrics import count_metrics
 from crowd.models.csrnet import CSRNet
 from crowd.train import fit, parse_args
@@ -113,7 +114,7 @@ def test_checkpoints_carry_metadata(tmp_path):
         assert meta["model_version"] == "csrnet-partB-v1" and meta["part"] == "B"
         assert meta["run_id"] == RUN and meta["seed"] == 0
         assert meta["preprocess"] == preprocess_signature("part_B")
-        assert meta["thresholds_sha"] is None  # calibration is Phase 5
+        assert meta["thresholds_sha"] == thresholds_sha()  # ties the model to its level bands
         assert meta["val_mae"] is not None and meta["val_rmse"] is not None
     assert "optimizer" not in load_checkpoint(run_dir(cfg) / "best.pth")  # lean
     assert {"optimizer", "rng", "best", "elapsed_s"} <= load_checkpoint(

@@ -6,6 +6,7 @@ a second copy in the web backend is the classic source of train/serve skew.
 
 from __future__ import annotations
 
+import cv2
 import numpy as np
 import torch
 from PIL import Image
@@ -24,6 +25,18 @@ def load_rgb(path) -> np.ndarray:
     """
     with Image.open(path) as im:
         return np.asarray(im.convert("RGB"))
+
+
+def downscale_long_side(image: np.ndarray, max_long_side: int) -> np.ndarray:
+    """Shrink a uint8 (H, W, 3) image so its longer side is at most `max_long_side`, keeping
+    the aspect ratio. Smaller images are returned unchanged (never upscaled): the model was
+    trained on images up to 1024 px, and upscaling only adds blur."""
+    h, w = image.shape[:2]
+    scale = max_long_side / max(h, w)
+    if scale >= 1.0:
+        return image
+    size = (max(round(w * scale), 1), max(round(h * scale), 1))
+    return cv2.resize(image, size, interpolation=cv2.INTER_AREA)
 
 
 def normalize(image: np.ndarray) -> torch.Tensor:

@@ -3,6 +3,8 @@ where matplotlib's global figure state is a thread-safety hazard and ~10x slower
 
 from __future__ import annotations
 
+import base64
+
 import cv2
 import numpy as np
 
@@ -40,3 +42,17 @@ def overlay_heatmap(
     image (see `crop_to_image`). Returns (RGB uint8 overlay, vmax used)."""
     heat, vmax = density_to_heatmap(density, image.shape[:2], vmax)
     return cv2.addWeighted(image, 1.0 - alpha, heat, alpha, 0.0), vmax
+
+
+def to_png_data_uri(rgb: np.ndarray, compression: int = 3) -> str:
+    """Encode an RGB uint8 image as an inline `data:image/png;base64,...` URI.
+
+    Low PNG compression: encoding time matters more than size here, and the result is
+    embedded in a JSON response (plan: inline base64 in v1).
+    """
+    ok, buf = cv2.imencode(
+        ".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_PNG_COMPRESSION, compression]
+    )
+    if not ok:
+        raise ValueError("PNG encoding failed")
+    return "data:image/png;base64," + base64.b64encode(buf.tobytes()).decode("ascii")

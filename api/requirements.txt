@@ -1,0 +1,10 @@
+# Runtime dependencies of the API. Direct dependencies are pinned to the versions the tests
+# ran against; the transitive set is pinned by the repo-level lock file once it exists
+# (docs/PLAN.md, Phase 0). The model code comes from the sibling package.
+-e ../ml
+
+fastapi==0.162.2
+uvicorn==0.54.0
+python-multipart==0.0.33
+pydantic==2.14.3
+pydantic-settings==2.16.2

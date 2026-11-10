@@ -1,0 +1,6 @@
+# Test and lint tooling (not installed in the Docker image).
+-r requirements.txt
+
+httpx==0.28.1  # starlette's TestClient
+pytest==9.2.0
+ruff==0.17.4

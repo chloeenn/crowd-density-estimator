@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 import h5py
 import numpy as np
@@ -13,6 +15,8 @@ from torch.utils.data import Dataset, get_worker_info
 
 from crowd.config import OUTPUT_STRIDE, DatasetConfig
 from crowd.transforms import load_rgb, normalize, pad_to_multiple, sum_pool
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -27,10 +31,12 @@ def discover_samples(raw: Path, processed: Path, part: str, split: str) -> list[
     return [Sample(i, processed / part / split / "density" / f"{i.stem}.h5") for i in images]
 
 
-def train_val_split(samples: list[Sample], cfg: DatasetConfig | None = None):
+def train_val_split(samples: Sequence[T], cfg: DatasetConfig | None = None):
     """Deterministically hold out `val_fraction` of train for checkpoint selection.
 
-    Selecting checkpoints on the test set leaks; test is touched once, at the end.
+    Selecting checkpoints on the test set leaks; test is touched once, at the end. Works on
+    any sequence (Samples here, plain image paths in `crowd.calibrate`), so both exclude the
+    same validation images.
     """
     cfg = cfg or DatasetConfig()
     idx = list(range(len(samples)))
