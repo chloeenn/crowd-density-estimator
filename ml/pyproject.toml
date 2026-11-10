@@ -13,6 +13,7 @@ dependencies = [
   "pillow>=10",
   "opencv-python-headless>=4.9",
   "h5py>=3.10",
+  "pyyaml>=6",
   "torch>=2.2",
   "torchvision>=0.17",
 ]
@@ -28,3 +29,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF", "SIM", "C4", "PT"]
+ignore = ["PT018"]  # compound asserts read fine in tests

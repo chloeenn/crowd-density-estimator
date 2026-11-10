@@ -1,8 +1,16 @@
 """Read ShanghaiTech ground-truth `.mat` files."""
+
 from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 import scipy.io as sio
+
+
+def gt_path_for(image_path: Path) -> Path:
+    """IMG_12.jpg -> ../ground-truth/GT_IMG_12.mat"""
+    return image_path.parent.parent / "ground-truth" / f"GT_{image_path.stem}.mat"
 
 
 def load_points(mat_path) -> np.ndarray:

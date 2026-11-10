@@ -3,6 +3,7 @@
 There must be exactly one definition of "how an image becomes a network input";
 a second copy in the web backend is the classic source of train/serve skew.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -32,7 +33,7 @@ def normalize(image: np.ndarray) -> torch.Tensor:
 
 
 def pad_amount(size: int, multiple: int = OUTPUT_STRIDE) -> int:
-    """Pixels to add so that `size` becomes a multiple of `multiple`."""
+    """Pixels to add to make `size` a multiple of `multiple`."""
     return (-size) % multiple
 
 

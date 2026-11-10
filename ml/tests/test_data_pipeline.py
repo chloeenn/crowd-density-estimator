@@ -1,12 +1,13 @@
-"""Guards for the silent failure modes of density-map generation (see docs/PLAN.md §4.5).
+"""Guards for the silent failure modes of density-map generation (see docs/PLAN.md, Phase 1).
 
-None of these bugs raise an error; they produce a model that trains smoothly to a
-useless MAE. Run these before any training.
+These bugs raise no error. They produce a model with a useless MAE after smooth training.
+Run these tests before any training.
 """
+
 import numpy as np
 import pytest
 import torch
-from conftest import RAW, needs_data
+from helpers import RAW, needs_data
 from PIL import Image
 
 from crowd.config import DENSITY_BY_PART, DatasetConfig
@@ -56,8 +57,11 @@ def test_count_preserved_after_downsample():
 # 3. Grayscale Part A images become (3, H, W) tensors through the real dataset.
 @needs_data
 def test_grayscale_image_yields_three_channels(tmp_path):
-    gray = next(p for p in sorted((RAW / "part_A" / "train_data" / "images").glob("*.jpg"))
-                if Image.open(p).mode != "RGB")
+    gray = next(
+        p
+        for p in sorted((RAW / "part_A" / "train_data" / "images").glob("*.jpg"))
+        if Image.open(p).mode != "RGB"
+    )
     out = tmp_path / "d.h5"
     build_one(gray, out, A)
     for train in (True, False):
@@ -95,8 +99,12 @@ def test_crop_flip_moves_image_and_density_together():
 
 
 def test_crop_pads_images_smaller_than_crop():
-    im, d = random_crop_flip(np.ones((100, 120, 3), np.uint8), np.ones((100, 120), np.float32),
-                             (256, 256), np.random.default_rng(0))
+    im, d = random_crop_flip(
+        np.ones((100, 120, 3), np.uint8),
+        np.ones((100, 120), np.float32),
+        (256, 256),
+        np.random.default_rng(0),
+    )
     assert im.shape == (256, 256, 3) and d.shape == (256, 256)
     assert d.sum() == 100 * 120  # nothing lost to padding
 

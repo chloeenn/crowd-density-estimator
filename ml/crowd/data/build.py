@@ -5,25 +5,23 @@
 Precomputing matters: building a KDTree and thousands of kernels per epoch would
 dominate training time. Output mirrors the raw layout, one .h5 per image.
 """
+
 from __future__ import annotations
 
 import argparse
+import os
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import h5py
 from PIL import Image
 
 from crowd.config import DENSITY_BY_PART, DensityConfig
-from crowd.data.annotations import load_points
+from crowd.data.annotations import gt_path_for, load_points
 from crowd.data.density import density_map
 
 PARTS = ("part_A", "part_B")
 SPLITS = ("train_data", "test_data")
-
-
-def gt_path_for(image_path: Path) -> Path:
-    """IMG_12.jpg -> ../ground-truth/GT_IMG_12.mat"""
-    return image_path.parent.parent / "ground-truth" / f"GT_{image_path.stem}.mat"
 
 
 def build_one(image_path: Path, out_path: Path, cfg: DensityConfig) -> int:
@@ -39,18 +37,26 @@ def build_one(image_path: Path, out_path: Path, cfg: DensityConfig) -> int:
     return len(points)
 
 
-def build_all(raw: Path, out: Path, parts=PARTS, overwrite: bool = False) -> None:
-    for part in parts:
-        for split in SPLITS:
-            images = sorted((raw / part / split / "images").glob("*.jpg"))
-            done = 0
-            for img in images:
-                target = out / part / split / "density" / f"{img.stem}.h5"
-                if target.exists() and not overwrite:
-                    continue
-                build_one(img, target, DENSITY_BY_PART[part])
-                done += 1
-            print(f"{part}/{split}: {done} written, {len(images) - done} skipped")
+def _build_job(job: tuple[Path, Path, DensityConfig]) -> int:
+    """Picklable single-argument wrapper for the process pool."""
+    return build_one(*job)
+
+
+def build_all(
+    raw: Path, out: Path, parts=PARTS, overwrite: bool = False, workers: int | None = None
+) -> None:
+    """Build every missing map. Images are independent, so they run in a process pool."""
+    with ProcessPoolExecutor(max_workers=workers or os.cpu_count()) as pool:
+        for part in parts:
+            for split in SPLITS:
+                images = sorted((raw / part / split / "images").glob("*.jpg"))
+                jobs = []
+                for img in images:
+                    target = out / part / split / "density" / f"{img.stem}.h5"
+                    if overwrite or not target.exists():
+                        jobs.append((img, target, DENSITY_BY_PART[part]))
+                list(pool.map(_build_job, jobs))  # list() surfaces worker exceptions
+                print(f"{part}/{split}: {len(jobs)} written, {len(images) - len(jobs)} skipped")
 
 
 def main() -> None:
@@ -59,8 +65,9 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=Path("data/processed"))
     ap.add_argument("--parts", nargs="+", default=list(PARTS), choices=PARTS)
     ap.add_argument("--overwrite", action="store_true")
+    ap.add_argument("--workers", type=int, default=None, help="default: all CPU cores")
     args = ap.parse_args()
-    build_all(args.raw, args.out, args.parts, args.overwrite)
+    build_all(args.raw, args.out, args.parts, args.overwrite, args.workers)
 
 
 if __name__ == "__main__":

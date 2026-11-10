@@ -1,0 +1,10 @@
+# Dependencies for training on Colab: every package in ml/pyproject.toml EXCEPT torch and
+# torchvision. Colab ships a CUDA build of both; a second pip install replaces it
+# with a CPU build and slows training about 20 times. Install the `crowd` package with --no-deps.
+numpy>=1.26
+scipy>=1.11
+pillow>=10
+opencv-python-headless>=4.9
+h5py>=3.10
+pyyaml>=6
+pandas>=2.0

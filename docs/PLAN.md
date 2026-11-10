@@ -62,7 +62,7 @@ If a gate fails, stop and report the failure.
 
 ## 4. Targets
 
-Published CSRNet results on ShanghaiTech (Unverified. Confirm against the paper before quoting):
+Published CSRNet results on ShanghaiTech, for reference only. Quote them with a citation to the paper:
 
 | Part | MAE | RMSE |
 |---|---|---|
@@ -191,7 +191,7 @@ Convert each head to a normalised Gaussian so `density_map.sum() == len(points)`
 ### Precompute (`build.py`)
 
 - [ ] Write one `.h5` per image to `data/processed/`. Mirror the raw directory tree.
-- [ ] Run once. Expect about 1200 files in a few minutes.
+- [ ] Run once. This produces about 1200 files in a few minutes.
 
 ### Dataset (`dataset.py`)
 
@@ -236,22 +236,48 @@ Gate G2: `test_model.py` passes.
 | Setting | Value |
 |---|---|
 | Loss | `MSELoss(reduction="sum")` divided by batch size |
-| Optimiser | SGD, lr `1e-7`, momentum 0.95, weight decay `5e-4` |
+| Optimiser | Adam, lr `1e-5`, no weight decay (default). Paper recipe: SGD, lr `1e-7`, momentum 0.95, weight decay `5e-4` |
 | Batch | 1 for full images, 8 to 16 for fixed crops |
 | Epochs | 100 to 150 for the acceptance bar, about 400 for paper parity |
 | Checkpoints | `best.pth` on validation MAE, `last.pth` every epoch |
 
-Loss reduction and learning rate depend on each other. `reduction="sum"` adds over about 12k output pixels, so gradients run about 10^4 times larger than with `reduction="mean"`. Change both together. Document this next to the values in `config.py`. When switching to Adam, start at `1e-6` with sum reduction and re-tune.
+Loss reduction and learning rate depend on each other. `reduction="sum"` adds over about 12k output pixels, so gradients run about 10^4 times larger than with `reduction="mean"`. Change both together. Document this next to the values in `config.py`. Phase 3 findings below show why Adam at `1e-5` is the default.
+
+### Phase 3 findings (measured 2026-11-09)
+
+#### Optimiser choice
+
+The paper's SGD recipe needs single full images and 100k+ steps. This loop uses fixed-size crops in batches of 8, so it takes far fewer steps. Adam is the default. Overfit check on 10 Part B images (predict-nothing baseline MAE 133.8):
+
+| Optimiser | Steps | Val MAE | Note |
+|---|---|---|---|
+| SGD lr 1e-7 (paper) | 150 | 90.5 | Still descending. Too slow for this step count |
+| SGD lr 1e-6 | 200 | 56.2 | Plateau from step 60 |
+| Adam lr 1e-5 | 150 | 23.8 best | Fits. Density correlation with ground truth 0.86 |
+| Adam lr 1e-5 | 600 | 10.3 best, 10.6 final | Gate G3 run |
+
+Defaults live in `TrainConfig`. Run the paper recipe with `--optimizer sgd --lr 1e-7 --momentum 0.95 --weight-decay 5e-4`. The `reduction="sum"` pairing applies to both optimisers.
+
+#### G3: overfit 10 images (passed, one open issue)
+
+- One fixed batch: loss fell from 1.34 to 0.0007. Predicted count 10.6, target 10.5.
+- 10-image run: train loss fell from 1.3 to 0.03-0.1 per sample. Validation MAE on the same images reached 10.3 (8% of the mean count, 134).
+- Open issue: validation MAE oscillates between 10 and 38 across checkpoints at a constant learning rate. Crop loss is near zero. Full-image counts are unstable.
+- Next step: decide on a learning-rate decay schedule before the full run.
+
+#### G4: full run (open)
+
+G4 needs Colab GPU time. The Part A and Part B acceptance numbers in Section 4 are not validated.
 
 ### Tasks
 
-- [ ] Train the full network. Add `--freeze-frontend-epochs` with default 0 for an optional warmup of 1 to 2 epochs. A permanently frozen frontend costs 10 to 20 MAE on Part A.
-- [ ] Hold out 10% of the training set as validation. Use a recorded seed. Save the split to `split.json`.
-- [ ] Select checkpoints on validation MAE.
-- [ ] Implement `--resume`. Restore model, optimiser, epoch, best MAE, and RNG state. Append to the same `metrics.jsonl`.
-- [ ] Write a run directory for every run (see Versioning).
+- [x] Train the full network. Add `--freeze-frontend-epochs` with default 0 for an optional warmup of 1 to 2 epochs. A permanently frozen frontend costs 10 to 20 MAE on Part A.
+- [x] Hold out 10% of the training set as validation. Use a recorded seed. Save the split to `split.json`.
+- [x] Select checkpoints on validation MAE.
+- [x] Implement `--resume`. Restore model, optimiser, epoch, best MAE, and RNG state. Append to the same `metrics.jsonl`.
+- [x] Write a run directory for every run (see Versioning).
 - [ ] Train Part A and Part B as separate models.
-- [ ] Write `notebooks/colab_train.ipynb`. Save a checkpoint to Drive every epoch. Upload the dataset to Drive once.
+- [x] Write `notebooks/colab_train.ipynb`. Save a checkpoint to Drive every epoch. Upload the dataset to Drive once.
 
 ### Compute
 
@@ -346,7 +372,7 @@ Return the heatmap as inline base64 in v1.
   - Pad to a multiple of 8.
   - Return 4xx with a readable message. Never return a stack trace.
 - [ ] Render the heatmap with OpenCV: `applyColorMap(norm, COLORMAP_JET)`, upsample to the original size, then `addWeighted(img, 0.6, heat, 0.4)`.
-- [ ] Normalise each heatmap per image. Return `max_concentration` for the scale label. Add a fixed-scale option.
+- [ ] Normalise each heatmap per image. Return `max_concentration` for the scale label. Accept an optional fixed scale parameter for comparable heatmaps across images.
 - [ ] Serve Part A by default. Add a model switch for Part B.
 - [ ] Write `api/tests/` with a randomly initialised model:
   - Valid image returns 200 and a well-formed body.
@@ -384,11 +410,63 @@ Gate G8: build the app, upload an image against the real API, confirm the heatma
 - [ ] List these limitations: trained on ShanghaiTech street and plaza scenes. Accuracy drops on aerial, thermal, night, and heavily occluded images. The level label depends on framing. `local_concentration` is image-space. The tool is unsuitable for safety-critical monitoring.
 - [ ] Write `docs/architecture.md` with tensor shapes per stage.
 - [ ] Complete the Makefile targets: `setup`, `verify-data`, `preprocess`, `train`, `eval`, `calibrate`, `api`, `web`, `test`.
-- [ ] Configure `ruff` and `black` with pre-commit. Add type hints to public functions. Write docstrings with the reason for each function.
+- [ ] Configure `ruff` (lint and format) with pre-commit. Add type hints to public functions. Write docstrings with the reason for each function.
 - [ ] Add `make download-weights`. Verify a SHA-256. Publish the ~62 MB checkpoints as a GitHub release asset or Drive link.
-- [ ] Add `Dockerfile` for `api` and `web`, and `docker-compose.yml`.
+- [ ] Add Docker, CI, and runtime configuration as specified in "DevOps and delivery" below.
 
 Gate G9: complete the Definition of done.
+
+## DevOps and delivery
+
+Scope is local deployment plus CI. No cloud hosting, Kubernetes, or GPU serving. Build this alongside Phases 6 to 8. CI steps start after Phase 1.
+
+### CI (GitHub Actions)
+
+The git root is the shared parent. Put the workflow in the parent `.github/workflows/crowd-estimator.yml` and scope it with `paths: ["crowd-estimator/**"]` and `defaults.run.working-directory: crowd-estimator`. Do not touch other projects' workflows.
+
+- [ ] Job `ml`: Python 3.11, install CPU `torch` and `torchvision` from the PyTorch CPU index, `pip install -e "ml[dev]"`, run `ruff check`, `ruff format --check`, and `pytest ml/tests`.
+- [ ] Job `api`: install `api/requirements.txt`, run `pytest api/tests` with a randomly initialised model.
+- [ ] Job `web`: `npm ci`, `npm run lint`, `npm run build`.
+- [ ] Job `docker`: build both images without pushing, to catch Dockerfile drift.
+- [ ] Cache pip and npm. Cancel superseded runs with `concurrency`.
+- [ ] CI has no dataset. Mark tests with real samples as `@pytest.mark.dataset` and skip them in CI. G1 evidence still comes from the local run. Add synthetic-data variants of the six data tests so CI covers the logic.
+- [ ] CI never downloads the 62 MB checkpoints. API tests use a random model.
+- [ ] Add Dependabot for pip, npm, and Docker, scoped to `crowd-estimator/`.
+
+### Containers
+
+- [ ] `api/Dockerfile`: `python:3.11-slim`, CPU `torch` wheels, non-root user, `HEALTHCHECK` on `/api/health`. Build context is the repo root of `crowd-estimator/` because the API installs `-e ../ml`. Add `.dockerignore` for `data/`, `runs/`, `.venv/`, `web/node_modules/`, `.git`, `.history`.
+- [ ] Do not bake checkpoints into the image. Mount `./models:/models:ro` and set `MODEL_PATH`. The API fails fast if the checkpoint is missing or the `preprocess` check fails, so the container exits non-zero and the compose status shows it.
+- [ ] `web/Dockerfile`: multi-stage. Node builds, nginx serves the static bundle. `VITE_API_URL` is a build-time value, so either proxy `/api` through nginx (preferred, no CORS) or document the rebuild.
+- [ ] `docker-compose.yml`: services `api` and `web`, a `models` volume, `depends_on` with `condition: service_healthy`, and a restart policy.
+- [ ] Image size check: CPU torch image should stay under about 1.5 GB. Record the size in the README.
+- [ ] Set `torch.set_num_threads` from an env var with default 1 (see Phase 6), and set a container memory limit sized for a 1600 px input.
+
+### Runtime configuration and operations
+
+- [ ] All API settings come from environment variables through `pydantic-settings`: `MODEL_PATH`, `MODEL_PART`, `CORS_ORIGINS`, `MAX_UPLOAD_MB`, `MAX_LONG_SIDE`, `LOG_LEVEL`. Commit `.env.example`. Ignore `.env`.
+- [ ] Restrict CORS to the configured origins. No `*` in the compose file.
+- [ ] Structured JSON logs with request id, status, and `inference_ms`. Never log image bytes or filenames.
+- [ ] `GET /api/health` returns 503 until the model is loaded, so the Docker healthcheck is meaningful.
+- [ ] Serialise or bound concurrent inference. One model instance on CPU with a semaphore, and 503 with `Retry-After` when the queue is full.
+- [ ] Uploads are processed in memory and never written to disk. Say so in the README privacy note.
+- [ ] Pin Python dependency versions in `api/requirements.txt` from the lock file, so the image matches CI. Align `ml/pyproject.toml` lower bounds (`torch>=2.2`) with what CI and Docker install.
+
+### Model artefact distribution
+
+- [ ] Publish `best.pth` for each part as a GitHub release asset with a SHA-256 file. Tag releases `v<major>.<minor>` and keep the tag, `model_version`, and `docs/runs/<run_id>.json` in step.
+- [ ] `make download-weights` verifies the hash and writes to `./models/`. Compose and the README quickstart call it.
+- [ ] Training stays on Colab with Drive checkpoints. No training in CI or Docker.
+
+### Developer tooling
+
+- [ ] Use `ruff` for both linting and formatting, as configured in `ml/pyproject.toml`. Do not add `black`.
+- [ ] Add `.pre-commit-config.yaml` with `ruff`, `ruff-format`, a large-file check (blocks `.h5`, `.pth`, images over 1 MB), and end-of-file fixes. The large-file hook backs up the Git safety rule against committing the dataset.
+- [ ] Makefile targets `docker-build`, `docker-up`, `docker-down`, and `lint`. Keep the `PYTORCH_ENABLE_MPS_FALLBACK=1` setting out of Docker and CI.
+
+### Out of scope
+
+Cloud deploy, autoscaling, GPU inference, metrics and tracing stack, authentication, rate limiting beyond the queue bound, and model registries.
 
 ## Versioning
 
@@ -399,7 +477,7 @@ Track `data/MANIFEST.json`:
 ```json
 {
   "name": "ShanghaiTech Part A + Part B",
-  "source": "<provenance of this copy>",
+  "source": "Download URL or archive name of this copy",
   "obtained": "2026-11-09",
   "parts": {
     "A": {"train": 300, "test": 182},
@@ -445,7 +523,7 @@ dataset_manifest_sha, thresholds_sha
 ### Seeding
 
 - [ ] Implement `crowd/seeding.py:set_seed(seed)`. Seed `random`, `numpy`, and `torch` on all devices. Save the value in the run directory.
-- [ ] Expect nondeterministic kernels on cuDNN and MPS. Reproduce the split and initialisation from the seed.
+- [ ] cuDNN and MPS kernels are nondeterministic. Reproduce the split and initialisation from the seed.
 
 ## Schedule
 
@@ -482,6 +560,11 @@ Total: 5 to 7 working days plus unattended training. Build Phases 6 and 7 agains
 | 13 | `local_concentration` read as people per m^2 | Medium | Rename, caveats in API, UI, README |
 | 14 | Points outside image bounds | Low | Clip in `annotations.py` |
 | 15 | 189 Part A sizes block batching | Low | Fixed-size crops or batch size 1 |
+| 16 | CI workflow in the shared parent repo triggers on or breaks other projects | Medium | `paths` filter, `working-directory`, no edits to other workflows |
+| 17 | Docker image bloated by CUDA torch or baked-in weights | Medium | CPU wheels, mount checkpoints, size check |
+| 18 | Container starts with missing or mismatched checkpoint | Medium | Fail fast at load, health returns 503, compose healthcheck |
+| 19 | Dataset-dependent tests fail in CI, or get disabled and hide regressions | Medium | `dataset` marker, synthetic variants run in CI |
+| 20 | `VITE_API_URL` baked at build time breaks in compose | Low | nginx `/api` proxy |
 
 ## Definition of done
 
@@ -498,7 +581,10 @@ Total: 5 to 7 working days plus unattended training. Build Phases 6 and 7 agains
 ### Software
 
 - [ ] `make test` passes for ml and api.
-- [ ] `ruff` and `black` report no issues.
+- [ ] `ruff check` and `ruff format --check` report no issues.
+- [ ] CI passes on a pull request for `ml`, `api`, `web`, and `docker` jobs.
+- [ ] `docker compose up` starts both services healthy against downloaded weights, and an upload works through the browser.
+- [ ] `.env.example` lists every setting. No secrets or `*` CORS in committed config.
 - [ ] API returns a valid body for a valid image and the correct code for each of the four bad inputs (G7).
 - [ ] A deliberate preprocessing mismatch raises at checkpoint load.
 - [ ] Frontend builds and completes an upload against the real API (G8).
@@ -540,6 +626,8 @@ Write this report when the Definition of done is complete:
 ## Decisions
 
 - Train Part A and Part B separately. Serve Part A by default with a UI switch. A combined model is out of scope.
-- Target local deployment. Provide Docker files for `api` and `web`.
+- Target local deployment. Provide Docker files for `api` and `web`, plus GitHub Actions CI. No cloud hosting.
+- Use `ruff` for lint and format. Drop `black`.
+- Ship model weights as release assets, mounted into the container, never baked into images or committed.
 - Use the 25/50/75/90 percentile bands for Low, Medium, High, and Critical.
 - Keep `data/MANIFEST.json` tracked in `data/`. Keep run summaries in `docs/runs/`.

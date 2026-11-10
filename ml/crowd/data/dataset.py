@@ -1,4 +1,5 @@
 """PyTorch dataset over precomputed density maps."""
+
 from __future__ import annotations
 
 import random
@@ -11,7 +12,6 @@ import torch
 from torch.utils.data import Dataset, get_worker_info
 
 from crowd.config import OUTPUT_STRIDE, DatasetConfig
-from crowd.data.build import gt_path_for
 from crowd.transforms import load_rgb, normalize, pad_to_multiple, sum_pool
 
 
@@ -27,15 +27,16 @@ def discover_samples(raw: Path, processed: Path, part: str, split: str) -> list[
     return [Sample(i, processed / part / split / "density" / f"{i.stem}.h5") for i in images]
 
 
-def train_val_split(samples: list[Sample], cfg: DatasetConfig = DatasetConfig()):
+def train_val_split(samples: list[Sample], cfg: DatasetConfig | None = None):
     """Deterministically hold out `val_fraction` of train for checkpoint selection.
 
     Selecting checkpoints on the test set leaks; test is touched once, at the end.
     """
+    cfg = cfg or DatasetConfig()
     idx = list(range(len(samples)))
     random.Random(cfg.split_seed).shuffle(idx)
     n_val = max(1, round(len(samples) * cfg.val_fraction))
-    val = {i for i in idx[:n_val]}
+    val = set(idx[:n_val])
     train_s = [s for i, s in enumerate(samples) if i not in val]
     val_s = [s for i, s in enumerate(samples) if i in val]
     return train_s, val_s
@@ -71,8 +72,10 @@ class CrowdDataset(Dataset):
     `target.sum()` equals the ground-truth head count.
     """
 
-    def __init__(self, samples: list[Sample], train: bool, cfg: DatasetConfig = DatasetConfig(),
-                 seed: int = 0):
+    def __init__(
+        self, samples: list[Sample], train: bool, cfg: DatasetConfig | None = None, seed: int = 0
+    ):
+        cfg = cfg or DatasetConfig()
         if any(c % OUTPUT_STRIDE for c in cfg.crop_size):
             raise ValueError(f"crop_size must be multiples of {OUTPUT_STRIDE}")
         self.samples, self.train, self.cfg, self.seed = samples, train, cfg, seed

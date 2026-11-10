@@ -1,4 +1,5 @@
 """Turn head-point annotations into density maps whose sum equals the head count."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -36,9 +37,9 @@ def density_map(points: np.ndarray, height: int, width: int, cfg: DensityConfig)
         return dmap
     pts = clip_points(points, height, width)
     sigmas = compute_sigmas(pts, cfg)
-    for (x, y), sigma in zip(pts, sigmas):
+    for (x, y), sigma in zip(pts, sigmas, strict=True):
         radius = int(cfg.truncate * float(sigma) + 0.5)
-        cx, cy = int(round(float(x))), int(round(float(y)))
+        cx, cy = round(float(x)), round(float(y))
         x0, x1 = max(cx - radius, 0), min(cx + radius + 1, width)
         y0, y1 = max(cy - radius, 0), min(cy + radius + 1, height)
         gx = np.exp(-0.5 * ((np.arange(x0, x1) - float(x)) / sigma) ** 2)
