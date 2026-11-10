@@ -1,0 +1,51 @@
+# Data and model artefacts (large; never commit)
+# Leading slash anchors to this directory: an unanchored "data/" would also
+# ignore ml/crowd/data/, which is source code.
+/data/*
+!/data/MANIFEST.json
+/runs/
+*.h5
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.safetensors
+
+# Experiment tracking
+wandb/
+mlruns/
+lightning_logs/
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Node / web
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
