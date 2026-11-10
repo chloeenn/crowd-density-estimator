@@ -43,9 +43,12 @@ coverage/
 # Logs
 *.log
 
-# Editors
+# Editors and local tooling
 .vscode/
 .idea/
+.history/
+*.code-workspace
+.claude/settings.local.json
 
 # OS
 .DS_Store
