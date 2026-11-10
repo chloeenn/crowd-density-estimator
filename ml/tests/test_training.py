@@ -1,39 +1,20 @@
 """Training machinery on tiny synthetic data (CPU, no dataset or GPU needed)."""
 
 import json
-from dataclasses import replace
 
 import pytest
 import torch
 import yaml
-from helpers import make_samples
+from helpers import RUN, make_samples, tiny_cfg
 from torch import nn
 
 from crowd.checkpoint import load_checkpoint, save_checkpoint
-from crowd.config import DatasetConfig, TrainConfig
+from crowd.config import preprocess_signature
 from crowd.data.dataset import CrowdDataset
-from crowd.engine import count_metrics, validate
+from crowd.engine import validate
+from crowd.metrics import count_metrics
 from crowd.models.csrnet import CSRNet
-from crowd.runs import preprocess_signature
 from crowd.train import fit, parse_args
-
-RUN = "t"
-
-
-def tiny_cfg(tmp_path, **kw) -> TrainConfig:
-    base = TrainConfig(
-        runs_dir=tmp_path / "runs",
-        run_id=RUN,
-        publish_dir=None,
-        data=DatasetConfig(crop_size=(64, 64)),
-        epochs=2,
-        batch_size=2,
-        lr=1e-5,
-        num_workers=0,
-        device="cpu",
-        pretrained=False,
-    )
-    return replace(base, **kw)
 
 
 def run_dir(cfg):
@@ -187,6 +168,22 @@ def test_resume_with_no_checkpoint_starts_fresh(tmp_path):
     cfg = tiny_cfg(tmp_path, epochs=1, resume=True)
     fit(cfg, s[:2], s[2:])
     assert [r["epoch"] for r in log_lines(cfg)] == [0]
+
+
+def test_cosine_lr_is_logged_and_resume_follows_the_new_curve(tmp_path):
+    s = make_samples(tmp_path, 3)
+    kw = {"lr_schedule": "cosine", "lr": 1e-4}
+
+    def lrs(run_id):
+        lines = (tmp_path / "runs" / run_id / "metrics.jsonl").read_text().splitlines()
+        return [json.loads(x)["lr"] for x in lines]
+
+    fit(tiny_cfg(tmp_path, run_id="whole", epochs=4, **kw), s[:2], s[2:])
+    fit(tiny_cfg(tmp_path, run_id="split", epochs=2, **kw), s[:2], s[2:])
+    fit(tiny_cfg(tmp_path, run_id="split", epochs=4, resume=True, **kw), s[:2], s[2:])
+    whole, split = lrs("whole"), lrs("split")
+    assert whole[0] == pytest.approx(1e-4) and whole[-1] == pytest.approx(1e-6)
+    assert len(split) == 4 and split[2:] == pytest.approx(whole[2:])  # resumed epochs match
 
 
 def test_frontend_warmup_freezes_frontend_only(tmp_path):

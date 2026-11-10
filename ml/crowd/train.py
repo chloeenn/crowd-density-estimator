@@ -21,10 +21,11 @@ import torch
 from torch.utils.data import DataLoader
 
 from crowd.checkpoint import load_checkpoint, save_checkpoint
-from crowd.config import DatasetConfig, TrainConfig
+from crowd.config import DatasetConfig, TrainConfig, preprocess_signature
 from crowd.data.dataset import CrowdDataset, Sample, discover_samples, train_val_split
 from crowd.device import get_device
-from crowd.engine import Metrics, train_epoch, validate
+from crowd.engine import train_epoch, validate
+from crowd.metrics import Metrics
 from crowd.models.csrnet import CSRNet
 from crowd.runs import (
     collect_env,
@@ -32,12 +33,12 @@ from crowd.runs import (
     find_latest_run,
     git_info,
     make_run_id,
-    preprocess_signature,
     publish_run,
     write_config,
     write_provenance,
     write_summary,
 )
+from crowd.schedule import lr_for_epoch
 from crowd.seeding import capture_rng, restore_rng, set_seed
 
 log = logging.getLogger("crowd.train")
@@ -143,6 +144,8 @@ def fit(cfg: TrainConfig, train_s: list[Sample], val_s: list[Sample]) -> dict:
         t0 = time.time()
         train_loader.generator.manual_seed(cfg.seed + epoch)
         model.set_frontend_trainable(epoch >= cfg.freeze_frontend_epochs)
+        for group in optimizer.param_groups:
+            group["lr"] = lr_for_epoch(cfg, epoch)
         loss = train_epoch(model, train_loader, optimizer, device)
 
         record = {"epoch": epoch, "train_loss": loss, "lr": optimizer.param_groups[0]["lr"]}
@@ -214,6 +217,8 @@ def parse_args(argv=None) -> tuple[TrainConfig, int]:
     ap.add_argument("--crop", type=int, default=d.data.crop_size[0], help="square crop size")
     ap.add_argument("--optimizer", choices=["adam", "sgd"], default=d.optimizer)
     ap.add_argument("--lr", type=float, default=d.lr)
+    ap.add_argument("--lr-schedule", choices=["constant", "cosine"], default=d.lr_schedule)
+    ap.add_argument("--lr-min-factor", type=float, default=d.lr_min_factor)
     ap.add_argument("--momentum", type=float, default=d.momentum)
     ap.add_argument("--weight-decay", type=float, default=d.weight_decay)
     ap.add_argument("--freeze-frontend-epochs", type=int, default=d.freeze_frontend_epochs)
@@ -244,6 +249,8 @@ def parse_args(argv=None) -> tuple[TrainConfig, int]:
         batch_size=a.batch_size,
         optimizer=a.optimizer,
         lr=a.lr,
+        lr_schedule=a.lr_schedule,
+        lr_min_factor=a.lr_min_factor,
         momentum=a.momentum,
         weight_decay=a.weight_decay,
         freeze_frontend_epochs=a.freeze_frontend_epochs,

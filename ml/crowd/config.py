@@ -39,6 +39,28 @@ DENSITY_BY_PART = {
 }
 
 
+# (MAE, RMSE) acceptance bar for this project, from docs/PLAN.md section 4.
+ACCEPTANCE = {"part_A": (85.0, 135.0), "part_B": (16.0, 24.0)}
+# Published CSRNet results (Li et al., CVPR 2018), for reference only.
+PUBLISHED = {"part_A": (68.2, 115.0), "part_B": (10.6, 16.0)}
+
+
+def preprocess_signature(part: str) -> dict:
+    """Everything that must match between training and serving. Stored in each checkpoint;
+    `load_model` compares it with the live config and refuses to run on a mismatch."""
+    d = DENSITY_BY_PART[part]
+    return {
+        "mean": list(IMAGENET_MEAN),
+        "std": list(IMAGENET_STD),
+        "stride": OUTPUT_STRIDE,
+        "pad_multiple": OUTPUT_STRIDE,
+        "sigma_strategy": "adaptive" if d.adaptive else "fixed",
+        "beta": d.beta,
+        "k": d.k,
+        "fixed_sigma": d.fixed_sigma,
+    }
+
+
 @dataclass(frozen=True)
 class DatasetConfig:
     crop_size: tuple[int, int] = (256, 256)  # (H, W); multiples of OUTPUT_STRIDE
@@ -75,6 +97,8 @@ class TrainConfig:
     batch_size: int = 8  # crops are fixed-size, so batching works; validation uses 1
     optimizer: str = "adam"  # "adam" | "sgd"
     lr: float = 1e-5
+    lr_schedule: str = "constant"  # "constant" | "cosine" (see crowd.schedule)
+    lr_min_factor: float = 0.01  # cosine floor = lr * lr_min_factor
     momentum: float = 0.95  # sgd only
     weight_decay: float = 0.0
     freeze_frontend_epochs: int = 0  # optional warmup: train only the backend at first

@@ -6,7 +6,8 @@ from datetime import datetime
 import numpy as np
 import torch
 
-from crowd.runs import filelist_sha256, find_latest_run, git_info, make_run_id, preprocess_signature
+from crowd.config import preprocess_signature
+from crowd.runs import filelist_sha256, find_latest_run, git_info, make_run_id
 from crowd.seeding import capture_rng, restore_rng, set_seed
 
 

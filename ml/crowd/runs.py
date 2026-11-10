@@ -16,29 +16,7 @@ from pathlib import Path
 
 import yaml
 
-from crowd.config import (
-    DENSITY_BY_PART,
-    IMAGENET_MEAN,
-    IMAGENET_STD,
-    OUTPUT_STRIDE,
-    TrainConfig,
-)
-
-
-def preprocess_signature(part: str) -> dict:
-    """Everything that must match between training and serving. Stored in each checkpoint;
-    `crowd.predict` compares it with the live config and refuses to run on a mismatch."""
-    d = DENSITY_BY_PART[part]
-    return {
-        "mean": list(IMAGENET_MEAN),
-        "std": list(IMAGENET_STD),
-        "stride": OUTPUT_STRIDE,
-        "pad_multiple": OUTPUT_STRIDE,
-        "sigma_strategy": "adaptive" if d.adaptive else "fixed",
-        "beta": d.beta,
-        "k": d.k,
-        "fixed_sigma": d.fixed_sigma,
-    }
+from crowd.config import TrainConfig
 
 
 def git_info(cwd: Path | None = None) -> dict:
