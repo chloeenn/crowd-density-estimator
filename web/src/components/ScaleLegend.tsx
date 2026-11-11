@@ -1,22 +1,20 @@
-import type { PredictResponse } from "../api/types";
+/** The stops of ml/crowd/viz.py's LEGEND_STOPS (viridis), sparse to dense. ml/tests/test_viz.py fails if the API's
+ * colormap changes without them, so the legend cannot drift from the heatmap it describes. */
+const GRADIENT = "linear-gradient(to right, #440154, #414487, #2a788e, #22a884, #7ad151, #fde725)";
 
-export function ScaleLegend({ result }: { result: PredictResponse }) {
-  const max = result.max_concentration;
+export function ScaleLegend() {
   return (
-    <div className="space-y-1" role="group" aria-label="Heatmap colour scale">
+    <div className="space-y-2" role="group" aria-label="Heatmap colour scale">
       <div
-        className="h-3 w-full rounded"
-        style={{ background: "linear-gradient(to right, #00007f, #0000ff, #00ffff, #ffff00, #ff0000, #7f0000)" }}
-        aria-hidden="true"
+        role="img"
+        aria-label="Colour scale from dark purple for the fewest people, through blue and green, to yellow for the most people in this image"
+        className="h-2.5 w-full rounded-full"
+        style={{ background: GRADIENT }}
       />
-      <div className="flex justify-between text-xs tabular-nums text-slate-700">
-        <span>0 (fewer people)</span>
-        <span>{max.toFixed(2)} (most, this image)</span>
+      <div className="flex justify-between text-xs text-muted">
+        <span>Fewer</span>
+        <span>More</span>
       </div>
-      <p className="text-xs text-slate-600">
-        Scale is people per {result.concentration_basis.cell_input_px}×{result.concentration_basis.cell_input_px} pixel
-        cell in the image, normalised per photo. It is not people per square metre.
-      </p>
     </div>
   );
 }

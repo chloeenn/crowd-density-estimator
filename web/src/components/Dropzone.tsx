@@ -4,9 +4,15 @@ interface Props {
   onFile: (file: File) => void;
   disabled?: boolean;
   accept: string[];
+  /** Upload size limit in MB, shown in the hint once the API reports it. */
+  maxMb?: number;
+  /** Slim single-line form, used once a photo is already on screen. */
+  compact?: boolean;
+  /** True once a photo is on screen (changes the wording only). */
+  source?: boolean;
 }
 
-export function Dropzone({ onFile, disabled, accept }: Props) {
+export function Dropzone({ onFile, disabled, accept, compact, source, maxMb }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
@@ -27,7 +33,8 @@ export function Dropzone({ onFile, disabled, accept }: Props) {
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
-      aria-label="Upload a crowd photo. Drop an image here, press Enter to browse, or paste from the clipboard."
+      aria-labelledby="dropzone-title"
+      aria-describedby="dropzone-hint"
       onClick={open}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -46,12 +53,16 @@ export function Dropzone({ onFile, disabled, accept }: Props) {
         const file = e.dataTransfer.files[0];
         if (file && !disabled) onFile(file);
       }}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-8 text-center transition focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400 ${
-        over ? "border-indigo-600 bg-indigo-50" : "border-slate-400 bg-white hover:bg-slate-50"
-      } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+      className={`flex flex-col items-center justify-center gap-1.5 card card-lift px-6 text-center ${compact ? "py-5" : "py-10"} ${
+        over ? "border-primary" : ""
+      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
     >
-      <p className="text-base font-medium text-slate-900">Drop a crowd photo here, or click to browse</p>
-      <p className="text-sm text-slate-600">You can also paste an image (Ctrl/Cmd+V). JPEG, PNG or WebP.</p>
+      <p id="dropzone-title" className="font-display text-xl font-semibold text-primary">
+        {source ? "Upload another photo" : "Upload a crowd photo"}
+      </p>
+      <p id="dropzone-hint" className="text-sm text-muted">
+        Drop an image here, click to browse, or paste. JPEG, PNG or WebP{maxMb ? `, up to ${maxMb} MB` : ""}.
+      </p>
       <input
         ref={input}
         type="file"

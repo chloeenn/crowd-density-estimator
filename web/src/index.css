@@ -1,1 +1,85 @@
+@import "@fontsource/poppins/300.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
 @import "tailwindcss";
+
+@theme {
+  --font-sans: Poppins, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Headlines and the count; same family as the body, set heavier. */
+  --font-display: Poppins, ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #32302f;
+  --color-muted: #6b6b6b;
+  --color-page: #fafaf8;
+  --color-surface: #ffffff;
+  --color-faint: #9b9b9b; /* decorative only, below text contrast */
+  --color-line: #e8e8e6;
+  /* Mid-weight fill for the High level badge: between the plain surface and the solid Critical badge. */
+  --color-weight: #e6e6e1;
+  /* Borders that carry meaning (controls, errors): >=3:1 against the page. */
+  --color-edge: #85857d;
+  --shadow-lift: 0 12px 32px -8px rgb(50 48 47 / 0.14);
+  /* Density levels are one sequential scale, the same viridis ramp the heatmap is painted with
+   * (ml/crowd/viz.py), so a level, its badge and the map read as one system. Each level is a soft tint
+   * plus a darker tone of the same hue for text (>=4.5:1). */
+  --color-ramp-0: #440154;
+  --color-ramp-1: #31688e;
+  --color-ramp-2: #35b779;
+  --color-ramp-3: #fde725;
+  --color-lv0-bg: #ece6f0;
+  --color-lv0-fg: #440154;
+  --color-lv1-bg: #e4ebf3;
+  --color-lv1-fg: #25506f;
+  --color-lv2-bg: #def2e8;
+  --color-lv2-fg: #146240;
+  --color-lv3-bg: #fbf1b8;
+  --color-lv3-fg: #5a4c00;
+  --animate-slide: slide 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  @keyframes slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(250%); }
+  }
+}
+
+@layer base {
+  html { background: var(--color-page); }
+  body {
+    background: var(--color-page);
+    color: var(--color-primary);
+    font-family: var(--font-sans);
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+  ::selection { background: var(--color-lv3-bg); color: var(--color-primary); }
+  input[type="range"] { accent-color: var(--color-primary); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+}
+
+@layer components {
+  /* Pill control: flat, scales slightly on hover. */
+  .pill {
+    display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center;
+    border-radius: 9999px; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 500;
+    transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms, color 200ms;
+  }
+  .pill:hover:not(:disabled) { transform: scale(1.02); }
+  .pill-solid { background: var(--color-primary); color: var(--color-page); }
+  .pill-ghost { background: transparent; color: var(--color-primary); box-shadow: inset 0 0 0 1px var(--color-line); }
+  .pill-ghost:hover:not(:disabled) { background: var(--color-surface); }
+  .pill-ghost[aria-pressed="true"] { background: var(--color-primary); color: var(--color-page); box-shadow: none; }
+  /* Card: flat, 1rem radius, hairline border; lifts on hover. */
+  .card {
+    border-radius: 1rem; background: var(--color-surface); border: 1px solid var(--color-line);
+    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms;
+  }
+  .card-lift:hover:not(:disabled):not([aria-disabled="true"]) { transform: translateY(-5px); box-shadow: var(--shadow-lift); }
+  @media (prefers-reduced-motion: reduce) {
+    .pill:hover:not(:disabled), .card-lift:hover:not(:disabled) { transform: none; }
+  }
+}

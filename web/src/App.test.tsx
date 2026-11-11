@@ -18,16 +18,17 @@ vi.mock("./api/client", async (orig) => ({
 }));
 
 describe("App", () => {
-  it("renders an accessible dropzone, sample alt text and the model switch", async () => {
+  it("renders an accessible dropzone, captioned samples and the model switch", async () => {
     render(<App />);
     expect(screen.getByRole("button", { name: /upload a crowd photo/i })).toHaveAttribute("tabindex", "0");
-    for (const img of screen.getAllByRole("img")) expect(img).toHaveAttribute("alt");
-    expect(await screen.findByLabelText(/Part B/)).toBeInTheDocument();
+    // Samples carry a visible caption as their accessible name; the thumbnails themselves are decorative.
+    expect(screen.getByRole("button", { name: "Street scene 1" })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Sparse scenes/)).toBeInTheDocument();
   });
 });
 
 describe("LevelBadge", () => {
-  it.each(["Low", "Medium", "High", "Critical"] as const)("shows %s as text and an icon", (level) => {
+  it.each(["Low", "Medium", "High", "Critical"] as const)("shows %s as a text label", (level) => {
     render(<LevelBadge level={level} />);
     expect(screen.getByText(new RegExp(`${level} density`))).toBeInTheDocument();
   });

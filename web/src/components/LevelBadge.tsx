@@ -1,19 +1,14 @@
 import type { Level } from "../api/types";
+import { levelStyle } from "../status";
+import { Pips } from "./Pips";
 
-// Colour is never the only signal: every level has its own icon and a text label.
-const STYLE: Record<Level, { icon: string; cls: string }> = {
-  Low: { icon: "✓", cls: "bg-emerald-100 text-emerald-900 border-emerald-700" },
-  Medium: { icon: "●", cls: "bg-yellow-100 text-yellow-900 border-yellow-700" },
-  High: { icon: "▲", cls: "bg-orange-100 text-orange-900 border-orange-700" },
-  Critical: { icon: "⚠", cls: "bg-red-100 text-red-900 border-red-700" },
-};
-
+// Severity reads from fill weight and a four-pip meter, plus the text label, so colour is never the only signal.
 export function LevelBadge({ level }: { level: Level }) {
-  const { icon, cls } = STYLE[level];
+  const { cls, label } = levelStyle(level);
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${cls}`}>
-      <span aria-hidden="true">{icon}</span>
-      {level} density
+    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${cls}`}>
+      <Pips level={level} />
+      {label}
     </span>
   );
 }

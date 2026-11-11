@@ -1,13 +1,26 @@
-export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+/** Errors are neutral and bordered, never the "Critical density" red, so a failure can't be mistaken for a verdict. */
+import { useEffect, useRef } from "react";
+
+export function ErrorBanner({ message, onDismiss, onRetry }: { message: string; onDismiss: () => void; onRetry?: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true });
+    ref.current?.scrollIntoView?.({ block: "nearest" });
+  }, [message]);
+  const btn = "pill pill-ghost";
   return (
-    <div role="alert" className="flex items-start justify-between gap-3 rounded-lg border border-red-700 bg-red-50 p-4 text-red-900">
-      <p>
-        <span aria-hidden="true">⚠ </span>
-        {message}
-      </p>
-      <button type="button" onClick={onDismiss} className="shrink-0 rounded px-2 font-medium underline focus:outline-none focus-visible:ring-4 focus-visible:ring-red-400">
-        Dismiss
-      </button>
+    <div ref={ref} tabIndex={-1} role="alert" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-2xl border border-edge bg-surface px-6 py-4 text-sm text-primary">
+      <p>{message}</p>
+      <div className="flex shrink-0">
+        {onRetry && (
+          <button type="button" onClick={onRetry} className={btn}>
+            Try again
+          </button>
+        )}
+        <button type="button" onClick={onDismiss} className={btn}>
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 }
