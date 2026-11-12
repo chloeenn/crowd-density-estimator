@@ -1,6 +1,6 @@
 # Build from the repo root: docker build -f api/Dockerfile .
 # (the API installs the sibling ml/ package, so the context must include both).
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 
