@@ -23,7 +23,8 @@ jobs:
       - name: Install (CPU torch, no dataset, no checkpoints)
         run: |
           pip install torch==2.15.0 torchvision==0.29.2 --index-url https://download.pytorch.org/whl/cpu
-          pip install -r api/requirements-dev.txt
+          # `-e ../ml` in requirements.txt is resolved against the cwd, so install from api/
+          (cd api && pip install -r requirements-dev.txt)
           pip install -e "ml[dev]"
       - run: ruff check .
       - run: ruff format --check .
