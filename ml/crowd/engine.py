@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from crowd.metrics import Metrics, count_metrics
 
 
-def train_epoch(model, loader: DataLoader, optimizer, device) -> float:
+def train_epoch(model, loader: DataLoader, optimizer, device, on_step=None) -> float:
     """Train for one epoch; returns the mean per-sample loss.
 
     Loss is MSE with reduction="sum" divided by batch size (see TrainConfig for why).
@@ -26,6 +26,8 @@ def train_epoch(model, loader: DataLoader, optimizer, device) -> float:
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
+        if on_step is not None:
+            on_step()
         total += loss.item()
     return total / len(loader)
 

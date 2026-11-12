@@ -1,4 +1,4 @@
-import type { Level, Part, Thresholds } from "./api/types";
+import type { DensityBands, Level, Part, Thresholds } from "./api/types";
 
 /** One scale for the whole page: the four levels the API reports. Descriptions say what the band looks like,
  * never what to do about it: the model has no measured accuracy, so it must not give operational advice. */
@@ -14,6 +14,15 @@ export const LEVELS: {
   { id: "High", label: "High density", description: "Dense. Little space between people.", cls: "bg-weight text-primary border border-primary", ramp: "bg-ramp-2" },
   { id: "Critical", label: "Critical density", description: "Very dense. People are packed closely together.", cls: "bg-primary text-page border border-primary", ramp: "bg-ramp-3" },
 ];
+
+/** Without a ground area the level only compares the head count with the training scenes. It says how big the
+ * crowd is, not how tightly it is packed, so it is named that way. */
+export const SIZES: Record<Level, { label: string; description: string }> = {
+  Low: { label: "Small crowd", description: "A few dozen to about 150 people." },
+  Medium: { label: "Medium crowd", description: "Roughly 150 to 350 people." },
+  High: { label: "Large crowd", description: "Roughly 350 to 700 people." },
+  Critical: { label: "Very large crowd", description: "About 700 people or more." },
+};
 
 /** 1-4: how many of the four severity pips a level fills. */
 export function levelRank(level: Level): number {
@@ -48,3 +57,17 @@ export function approxCount(n: number): string {
   return (Math.round(v / mag) * mag).toLocaleString();
 }
 
+
+/** People-per-m² range for each level, from the API's band edges. */
+export function densityRange(level: Level, b?: DensityBands): string {
+  if (!b) return "—";
+  if (level === "Low") return `Under ${b.medium}`;
+  if (level === "Medium") return `${b.medium} – ${b.high}`;
+  if (level === "High") return `${b.high} – ${b.critical}`;
+  return `${b.critical}+`;
+}
+
+/** Rounded for display: one decimal under 10 people/m², whole numbers above. */
+export function formatDensity(n: number): string {
+  return n < 10 ? n.toFixed(1) : Math.round(n).toLocaleString();
+}

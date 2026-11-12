@@ -36,6 +36,15 @@ def test_predictor_matches_the_evaluation_path(trained):
     assert served == pytest.approx(eval_counts, rel=1e-5)
 
 
+def test_flip_average_is_mirror_symmetric_and_keeps_shapes(trained):
+    p = Predictor.from_checkpoint(trained[0], flip_average=True)
+    image = np.random.default_rng(1).integers(0, 255, (90, 121, 3), dtype=np.uint8)
+    a, b = p.predict(image), p.predict(image[:, ::-1])
+    assert a.density.shape == (12, 16)
+    assert a.count == pytest.approx(b.count, rel=1e-4)
+    assert np.allclose(a.density, b.density[:, ::-1], atol=1e-4)
+
+
 def test_prediction_shapes_and_properties(trained):
     ckpt, _ = trained
     p = Predictor.from_checkpoint(ckpt)

@@ -5,7 +5,7 @@ import json
 import pytest
 from conftest import write_checkpoint
 from crowd.config import preprocess_signature
-from crowd.levels import LEVEL_CAVEAT, load_thresholds
+from crowd.levels import load_thresholds
 from fastapi.testclient import TestClient
 from images import jpeg
 
@@ -41,7 +41,6 @@ def test_metadata_describes_models_thresholds_and_limits(client):
     )
     assert body["thresholds"] == load_thresholds()["bands"]
     assert body["thresholds_info"]["split"] == "train_data minus validation"
-    assert body["level_caveat"] == LEVEL_CAVEAT
     limits = body["limits"]
     assert limits["max_upload_mb"] == 10 and limits["allowed_content_types"] == [
         "image/jpeg", "image/png", "image/webp",

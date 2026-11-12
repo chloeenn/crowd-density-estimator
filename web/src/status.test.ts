@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approxCount, rangeFor } from "./status";
+import { approxCount, densityRange, formatDensity, rangeFor } from "./status";
 
 const T = { low: 50, medium: 150, high: 400, critical: 800 };
 
@@ -21,4 +21,15 @@ describe("rangeFor", () => {
     expect(rangeFor("Critical", T)).toBe("800+");
   });
   it("shows a dash before thresholds load", () => expect(rangeFor("Low")).toBe("—"));
+});
+
+describe("densityRange", () => {
+  const B = { medium: 1, high: 2, critical: 4 };
+  it("covers every level without gaps", () => {
+    expect(["Low", "Medium", "High", "Critical"].map((l) => densityRange(l as never, B))).toEqual(["Under 1", "1 – 2", "2 – 4", "4+"]);
+  });
+});
+
+describe("formatDensity", () => {
+  it.each([[0.456, "0.5"], [3.04, "3.0"], [12.4, "12"]])("formats %s as %s", (n, out) => expect(formatDensity(n)).toBe(out));
 });

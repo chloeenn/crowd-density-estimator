@@ -7,11 +7,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 
-class ConcentrationBasis(BaseModel):
-    cell_input_px: int
-    processed_width: int
-    processed_height: int
-    units: str
+class DensityBands(BaseModel):
+    medium: float
+    high: float
+    critical: float
 
 
 class Thresholds(BaseModel):
@@ -19,6 +18,18 @@ class Thresholds(BaseModel):
     medium: int
     high: int
     critical: int
+
+
+class DensityResult(BaseModel):
+    """People per m^2, present only when the request gave the ground area."""
+
+    people_per_m2: float
+    level: Literal["Low", "Medium", "High", "Critical"]
+    area_m2: float
+    count: float  # people inside the marked region (the whole photo when none was marked)
+    in_region: bool
+    bands: DensityBands
+    units: str
 
 
 class ModelInfo(BaseModel):
@@ -30,10 +41,9 @@ class ModelInfo(BaseModel):
 class PredictResponse(BaseModel):
     count: float
     level: Literal["Low", "Medium", "High", "Critical"]
-    local_concentration: float
-    max_concentration: float
-    concentration_basis: ConcentrationBasis
     thresholds: Thresholds
+    density: DensityResult | None
+    routed: bool  # the scene model was chosen automatically
     model: ModelInfo
     heatmap: str  # data:image/png;base64,...
     inference_ms: int
@@ -64,5 +74,6 @@ class MetadataResponse(BaseModel):
     models: list[ModelDetail]
     thresholds: Thresholds
     thresholds_info: dict
-    level_caveat: str
+    density_bands: DensityBands
+    routing_threshold: float | None
     limits: Limits

@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.4
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+        args: [--maxkb=1024]  # also blocks dataset and checkpoint files
+      - id: forbid-new-submodules
+  - repo: local
+    hooks:
+      - id: no-data-or-weights
+        name: block dataset and checkpoint files
+        entry: Dataset and checkpoint files must not be committed
+        language: fail
+        files: \.(h5|pth|pt|ckpt|onnx|safetensors)$

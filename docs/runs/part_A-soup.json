@@ -1,0 +1,76 @@
+{
+  "summary": {
+    "run_id": "part_A-soup",
+    "part": "part_A",
+    "status": "finished",
+    "epochs_completed": 200,
+    "best": {
+      "epoch": null,
+      "val_mae": 95.4,
+      "val_rmse": 155.0
+    },
+    "total_seconds": 10977.6,
+    "test": {
+      "mae": 85.83097267150879,
+      "rmse": 122.821449676502,
+      "bias": 21.216508068881193,
+      "n": 182,
+      "checkpoint": "best.pth",
+      "epoch": 54,
+      "evaluated_at": "2026-11-11T19:08:40",
+      "acceptance_passed": false
+    },
+    "soup_of": [
+      "part_A-full",
+      "part_A-aug"
+    ]
+  },
+  "config": {
+    "part": "part_A",
+    "raw": "data/ShanghaiTech",
+    "processed": "data/processed",
+    "runs_dir": "runs",
+    "run_id": "part_A-full",
+    "publish_dir": "docs/runs",
+    "data": {
+      "crop_size": [
+        256,
+        256
+      ],
+      "val_fraction": 0.1,
+      "split_seed": 0
+    },
+    "epochs": 200,
+    "batch_size": 8,
+    "optimizer": "adam",
+    "lr": 1e-05,
+    "lr_schedule": "cosine",
+    "lr_min_factor": 0.01,
+    "momentum": 0.95,
+    "weight_decay": 0.0,
+    "freeze_frontend_epochs": 0,
+    "pretrained": true,
+    "val_every": 1,
+    "patience": 0,
+    "num_workers": 4,
+    "device": "auto",
+    "seed": 0,
+    "resume": true
+  },
+  "env": {
+    "python": "3.11.4",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "device": "mps",
+    "cuda": null,
+    "torch": "2.15.0",
+    "torchvision": "0.29.2",
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "opencv": "5.0.0",
+    "h5py": "3.16.0",
+    "git": {
+      "sha": "24aadcd",
+      "dirty": true
+    }
+  }
+}

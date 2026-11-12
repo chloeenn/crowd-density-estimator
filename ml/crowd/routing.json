@@ -1,0 +1,13 @@
+{
+  "threshold": 153.5,
+  "rule": "use the sparse model when the dense model counts fewer people than `threshold`",
+  "fitted_on": "validation images of Part A and Part B",
+  "n_images": 70,
+  "max_threshold": 159.5,
+  "max_threshold_rule": "p75 of the sparse model's training counts",
+  "relative_error_floor": 20.0,
+  "dense_run": "part_A-soup",
+  "sparse_run": "part_B-full",
+  "git_sha": "24aadcd",
+  "fitted": "2026-11-11"
+}

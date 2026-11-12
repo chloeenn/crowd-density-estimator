@@ -17,11 +17,13 @@ class Settings(BaseSettings):
     # Models: the default part is served unless a request asks for the other one.
     model_path: Path = Path("models/csrnet-partA.pth")
     model_part: Literal["A", "B"] = "A"
-    alt_model_path: Path | None = None  # optional second model (the other part) for the switch
+    alt_model_path: Path | None = None  # other part's model; enables auto routing
+
+    auto_route: bool = True  # choose the model per photo when both are loaded (see crowd.routing)
 
     # Upload limits.
     max_upload_mb: int = 10
-    max_long_side: int = 1600  # larger images are downscaled to this before inference
+    max_long_side: int = 1024  # larger images are downscaled to this (training max)
     max_image_pixels: int = 60_000_000  # decompression-bomb guard (width x height)
 
     # Concurrency: one model instance, bounded queue, 503 + Retry-After beyond it.

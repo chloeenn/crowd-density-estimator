@@ -1,0 +1,14 @@
+{
+  "_comment": "Checkpoints from runs/part_A-soup (average of part_A-full and part_A-aug) and runs/part_B-full (copy best.pth to models/). The sha256 is checked on every run. Add a release url to fetch them on another machine.",
+  "release": null,
+  "files": {
+    "csrnet-partA.pth": {
+      "url": null,
+      "sha256": "7d2a4172b56b7cc33f042f09dde7dd7072464d5e5bbdab1954975e176b8012fa"
+    },
+    "csrnet-partB.pth": {
+      "url": null,
+      "sha256": "964b8601a742a25c8480934455851b2710ea5e7409afbc56e229c19d34f214ad"
+    }
+  }
+}

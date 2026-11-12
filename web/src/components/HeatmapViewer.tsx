@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 interface Props {
   stale?: boolean;
   originalUrl: string;
   heatmap: string;
   name: string;
+  /** Drawn over the photo (the marked area). */
+  overlay?: ReactNode;
 }
 
 /** The returned heatmap is already blended with the photo. Stacking it over the original and
  * lowering its opacity fades back to the plain photo; the toggle flips between the two. */
-export function HeatmapViewer({ originalUrl, heatmap, name, stale }: Props) {
+export function HeatmapViewer({ originalUrl, heatmap, name, stale, overlay }: Props) {
   const [view, setView] = useState<"heatmap" | "original">("heatmap");
   const [opacity, setOpacity] = useState(100);
   const showHeat = view === "heatmap";
@@ -25,6 +27,7 @@ export function HeatmapViewer({ originalUrl, heatmap, name, stale }: Props) {
           className="absolute inset-0 h-full w-full"
           style={{ opacity: showHeat ? opacity / 100 : 0 }}
         />
+        {overlay}
       </div>
       <figcaption className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3">
         <div role="group" aria-label="Image view" className="flex gap-2">

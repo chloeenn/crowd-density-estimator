@@ -26,10 +26,11 @@ dev = ["pytest>=8", "ruff>=0.5", "matplotlib>=3.8"]
 include = ["crowd*"]
 
 [tool.setuptools.package-data]
-crowd = ["thresholds.json"]
+crowd = ["thresholds.json", "routing.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["dataset: needs the real ShanghaiTech data under data/ (skipped in CI)"]
 
 [tool.ruff]
 line-length = 100

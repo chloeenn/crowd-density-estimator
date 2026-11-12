@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from crowd.viz import crop_to_image, density_to_heatmap, overlay_heatmap
+from crowd.viz import LEGEND_STOPS, crop_to_image, density_to_heatmap, overlay_heatmap
 
 
 def test_crop_removes_padding_rows_and_columns():
@@ -11,13 +11,22 @@ def test_crop_removes_padding_rows_and_columns():
     assert crop_to_image(np.zeros((12, 16)), (96, 128)).shape == (12, 16)  # already aligned
 
 
-def test_heatmap_is_red_where_dense_and_blue_where_sparse():
+def test_heatmap_is_bright_where_dense_and_dark_where_sparse():
     d = np.zeros((8, 8), np.float32)
     d[4:, 4:] = 1.0
     heat, vmax = density_to_heatmap(d, (64, 64))
     assert vmax == 1.0 and heat.shape == (64, 64, 3) and heat.dtype == np.uint8
     dense, sparse = heat[60, 60], heat[2, 2]  # RGB
-    assert dense[0] > dense[2] and sparse[2] > sparse[0]
+    assert dense.sum() > sparse.sum() + 200  # viridis runs dark purple -> bright yellow
+    assert tuple(sparse) == (0x44, 0x01, 0x54) and tuple(dense) == (0xFD, 0xE7, 0x25)
+
+
+def test_legend_stops_match_the_colormap():
+    # The web legend hard-codes LEGEND_STOPS; this fails if the colormap changes without it.
+    ramp = np.linspace(0, 1, len(LEGEND_STOPS), dtype=np.float32).reshape(1, -1)
+    heat, _ = density_to_heatmap(ramp, (1, 6), vmax=1.0)
+    got = ["#{:02x}{:02x}{:02x}".format(*px) for px in heat[0]]
+    assert got == list(LEGEND_STOPS)
 
 
 def test_all_zero_density_does_not_divide_by_zero():

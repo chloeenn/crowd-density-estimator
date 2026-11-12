@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from crowd.levels import LEVEL_CAVEAT, load_thresholds, thresholds_sha
+from crowd.area import DENSITY_BANDS
+from crowd.levels import load_thresholds, thresholds_sha
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
@@ -56,7 +57,8 @@ async def metadata(
         models=models,
         thresholds=thresholds["bands"],
         thresholds_info={k: thresholds[k] for k in info_keys},
-        level_caveat=LEVEL_CAVEAT,
+        density_bands=DENSITY_BANDS,
+        routing_threshold=service.routing_threshold,
         limits=Limits(
             max_upload_mb=settings.max_upload_mb,
             max_long_side=settings.max_long_side,

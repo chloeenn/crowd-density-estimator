@@ -39,7 +39,7 @@ DENSITY_BY_PART = {
 }
 
 
-# (MAE, RMSE) acceptance bar for this project, from docs/PLAN.md section 4.
+# (MAE, RMSE) target for this project; see docs/training.md.
 ACCEPTANCE = {"part_A": (85.0, 135.0), "part_B": (16.0, 24.0)}
 # Published CSRNet results (Li et al., CVPR 2018), for reference only.
 PUBLISHED = {"part_A": (68.2, 115.0), "part_B": (10.6, 16.0)}
@@ -66,6 +66,9 @@ class DatasetConfig:
     crop_size: tuple[int, int] = (256, 256)  # (H, W); multiples of OUTPUT_STRIDE
     val_fraction: float = 0.1  # held out of *train*; test is never used for selection
     split_seed: int = 0
+    crops_per_image: int = 1  # random crops drawn from each training image per epoch
+    scale_range: tuple[float, float] | None = None  # random zoom of each crop, e.g. (0.8, 1.25)
+    photometric: bool = False  # random brightness, contrast and occasional grayscale
 
 
 @dataclass(frozen=True)
@@ -103,6 +106,10 @@ class TrainConfig:
     weight_decay: float = 0.0
     freeze_frontend_epochs: int = 0  # optional warmup: train only the backend at first
     pretrained: bool = True
+    ema_decay: float = 0.0  # 0 = off; else validate and save an exponential weight average
+    init_from: Path | None = (
+        None  # start from this checkpoint's weights (a fresh run, new optimiser)
+    )
 
     val_every: int = 1
     patience: int = 0  # stop after this many epochs without val-MAE improvement; 0 = off

@@ -55,6 +55,7 @@ def make_settings(checkpoints):
             "model_part": "A",
             "alt_model_path": checkpoints["B"],
             "max_long_side": 256,  # keep inference fast in tests
+            "auto_route": False,  # tests pick a model explicitly; routing has its own tests
         }
         return Settings(_env_file=None, **(values | overrides))
 

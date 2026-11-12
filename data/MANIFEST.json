@@ -1,0 +1,14 @@
+{
+  "n_files": 2396,
+  "counts": {
+    "part_A/test_data/ground-truth": 182,
+    "part_A/test_data/images": 182,
+    "part_A/train_data/ground-truth": 300,
+    "part_A/train_data/images": 300,
+    "part_B/test_data/ground-truth": 316,
+    "part_B/test_data/images": 316,
+    "part_B/train_data/ground-truth": 400,
+    "part_B/train_data/images": 400
+  },
+  "sha256": "efbd2dd6a0b0311bab8a86ca9f00e23e416a8ff892e1013ad6adf35b0c341dc8"
+}

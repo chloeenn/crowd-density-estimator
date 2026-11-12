@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import type { Metadata, Part, PredictResponse } from "./types";
+import type { Metadata, Part, Point, PredictResponse } from "./types";
 
 const http = axios.create({ baseURL: `${import.meta.env.VITE_API_URL ?? ""}/api` });
 
@@ -50,7 +50,12 @@ export async function getMetadata(signal?: AbortSignal): Promise<Metadata> {
 }
 
 export interface PredictOptions {
+  /** Force one model. Leave out to let the server choose by scene. */
   part?: Part;
+  /** Ground area in m². With it the result includes people per m². */
+  areaM2?: number;
+  /** Polygon (x, y as 0-1 fractions of the photo) that the area belongs to. */
+  region?: Point[];
   signal?: AbortSignal;
   onUploadProgress?: (fraction: number) => void;
 }
@@ -60,7 +65,11 @@ export async function predict(file: Blob, opts: PredictOptions = {}): Promise<Pr
   form.append("file", file, file instanceof File ? file.name : "image");
   try {
     const res = await http.post<PredictResponse>("/predict", form, {
-      params: opts.part ? { part: opts.part } : undefined,
+      params: {
+        ...(opts.part ? { part: opts.part } : {}),
+        ...(opts.areaM2 ? { area_m2: opts.areaM2 } : {}),
+        ...(opts.areaM2 && opts.region ? { region: JSON.stringify(opts.region) } : {}),
+      },
       signal: opts.signal,
       onUploadProgress: (e) => e.total && opts.onUploadProgress?.(e.loaded / e.total),
     });

@@ -1,0 +1,12 @@
+data/
+runs/
+models/
+.venv/
+.git
+.history
+.ruff_cache
+**/__pycache__
+**/.pytest_cache
+web/node_modules
+web/dist
+docs/

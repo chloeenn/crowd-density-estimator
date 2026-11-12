@@ -48,7 +48,18 @@ coverage/
 .idea/
 .history/
 *.code-workspace
-.claude/settings.local.json
+
+# AI assistant and design tooling (local only, not part of the project)
+.claude/
+.impeccable/
+.github/agents/
+.github/hooks/
+.github/skills/
+PRODUCT.md
+DESIGN.md
+DESIGN.json
+/package.json
+/package-lock.json
 
 # OS
 .DS_Store

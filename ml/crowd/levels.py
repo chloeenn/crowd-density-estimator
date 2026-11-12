@@ -1,8 +1,8 @@
-"""Density levels and image-space concentration.
+"""Crowd-size levels from the head count.
 
-Count describes crowd *size*; framing changes how dense a scene *looks* (200 people in a
-stadium shot is sparse, in a stairwell it is an emergency). So a result carries both a count
-level and a concentration value, and neither is a measure of people per square metre.
+A count says how big a crowd is, not how tightly it is packed: 200 people are sparse in a
+stadium and dangerous in a stairwell. People per square metre needs the ground area, so that
+lives in `crowd.area`. These levels compare a count with ShanghaiTech training scenes.
 """
 
 from __future__ import annotations
@@ -11,20 +11,9 @@ import hashlib
 import json
 from pathlib import Path
 
-import numpy as np
-
-from crowd.config import OUTPUT_STRIDE
-
 LEVELS = ("Low", "Medium", "High", "Critical")
 # Ships next to this module as package data (see [tool.setuptools.package-data]).
 THRESHOLDS_PATH = Path(__file__).with_name("thresholds.json")
-CONCENTRATION_QUANTILE = 95
-
-CONCENTRATION_UNITS = "people per 8x8-input-pixel cell (image-space, not people/m^2)"
-LEVEL_CAVEAT = (
-    "Levels are quantiles of ShanghaiTech training counts, a default for demo use. They depend "
-    "on camera distance and framing, so compare images of similar scale only."
-)
 
 
 def load_thresholds() -> dict:
@@ -50,25 +39,3 @@ def level_for_count(count: float, bands: dict[str, float]) -> str:
     if count >= bands["medium"]:
         return "Medium"
     return "Low"
-
-
-def concentration(density: np.ndarray) -> tuple[float, float]:
-    """(95th percentile, maximum) of per-cell density of a predicted map.
-
-    Each cell covers `OUTPUT_STRIDE` x `OUTPUT_STRIDE` pixels at the scale the model saw, so
-    the values are image-space: they change with camera distance, resolution and cropping.
-    `density` must already be cropped to the image (no padding cells).
-    """
-    cells = np.clip(density, 0, None)
-    return float(np.percentile(cells, CONCENTRATION_QUANTILE)), float(cells.max())
-
-
-def concentration_basis(processed_hw: tuple[int, int]) -> dict:
-    """Describes the scale `concentration` was measured at, for the API response."""
-    h, w = processed_hw
-    return {
-        "cell_input_px": OUTPUT_STRIDE,
-        "processed_width": w,
-        "processed_height": h,
-        "units": CONCENTRATION_UNITS,
-    }

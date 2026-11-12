@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
+import cv2
 import h5py
 import numpy as np
 import torch
@@ -69,6 +70,45 @@ def random_crop_flip(image: np.ndarray, density: np.ndarray, crop: tuple[int, in
     return np.ascontiguousarray(image), np.ascontiguousarray(density)
 
 
+def random_scale_crop(
+    image: np.ndarray, density: np.ndarray, crop: tuple[int, int], rng, scale_range
+):
+    """Like `random_crop_flip`, but the crop is first drawn at a random zoom.
+
+    A window of `crop / s` pixels is cut out and resized to `crop`, with `s` log-uniform in
+    `scale_range`. The density window is resized the same way and rescaled so its sum (the
+    head count in the window) is unchanged: zooming changes head size, never the count.
+    """
+    lo, hi = scale_range
+    s = float(np.exp(rng.uniform(np.log(lo), np.log(hi))))
+    ch, cw = crop
+    wh, ww = max(round(ch / s), OUTPUT_STRIDE), max(round(cw / s), OUTPUT_STRIDE)
+    image, density = random_crop_flip(image, density, (wh, ww), rng)
+    if (wh, ww) == (ch, cw):
+        return image, density
+    shrinking = wh > ch
+    image = cv2.resize(
+        image, (cw, ch), interpolation=cv2.INTER_AREA if shrinking else cv2.INTER_LINEAR
+    )
+    total = float(density.sum())
+    density = cv2.resize(density, (cw, ch), interpolation=cv2.INTER_LINEAR)
+    got = float(density.sum())
+    if got > 0:
+        density = density * (total / got)
+    return np.ascontiguousarray(image), np.ascontiguousarray(density.astype(np.float32))
+
+
+def photometric_jitter(image: np.ndarray, rng) -> np.ndarray:
+    """Brightness and contrast in +-20%, and a 10% chance of grayscale (some scenes are)."""
+    x = image.astype(np.float32)
+    if rng.random() < 0.1:
+        x = np.repeat(x.mean(axis=2, keepdims=True), 3, axis=2)
+    brightness, contrast = rng.uniform(0.8, 1.2, size=2)
+    mean = x.mean()
+    x = (x - mean) * contrast + mean * brightness
+    return np.clip(x, 0, 255).astype(np.uint8)
+
+
 class CrowdDataset(Dataset):
     """Yields (image (3,H,W) normalised, target (1,H/8,W/8) density).
 
@@ -88,7 +128,7 @@ class CrowdDataset(Dataset):
         self._rng = None
 
     def __len__(self) -> int:
-        return len(self.samples)
+        return len(self.samples) * (self.cfg.crops_per_image if self.train else 1)
 
     def _get_rng(self):
         if self._rng is None:  # created lazily so each DataLoader worker gets its own stream
@@ -97,12 +137,22 @@ class CrowdDataset(Dataset):
         return self._rng
 
     def __getitem__(self, i: int):
-        s = self.samples[i]
+        if not 0 <= i < len(self):
+            raise IndexError(i)  # keeps `for x in dataset` finite
+        s = self.samples[i % len(self.samples)]
         image = load_rgb(s.image)
         with h5py.File(s.density, "r") as f:
             density = f["density"][()]
         if self.train:
-            image, density = random_crop_flip(image, density, self.cfg.crop_size, self._get_rng())
+            rng = self._get_rng()
+            if self.cfg.scale_range:
+                image, density = random_scale_crop(
+                    image, density, self.cfg.crop_size, rng, self.cfg.scale_range
+                )
+            else:
+                image, density = random_crop_flip(image, density, self.cfg.crop_size, rng)
+            if self.cfg.photometric:
+                image = photometric_jitter(image, rng)
         img_t = pad_to_multiple(normalize(image))
         den_t = pad_to_multiple(torch.from_numpy(density))
         return img_t, sum_pool(den_t)[None]

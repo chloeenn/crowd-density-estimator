@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { getMetadata } from "./api/client";
-import type { Metadata, Part, PredictResponse } from "./api/types";
+import type { Metadata, Part, Point, PredictResponse, Scene } from "./api/types";
+import { AreaPanel, type AreaValue } from "./components/AreaPanel";
+import { RegionOverlay } from "./components/RegionOverlay";
 import { Dropzone } from "./components/Dropzone";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { HeatmapViewer } from "./components/HeatmapViewer";
@@ -10,10 +12,10 @@ import { ReferenceStrip } from "./components/ReferenceStrip";
 import { ResultCard } from "./components/ResultCard";
 import { SampleGallery, type Sample } from "./components/SampleGallery";
 import { ScaleLegend } from "./components/ScaleLegend";
-import { usePrediction } from "./hooks/usePrediction";
+import { usePrediction, type RunOptions } from "./hooks/usePrediction";
 import { MODEL_LABEL } from "./status";
 import { LevelBadge } from "./components/LevelBadge";
-import { approxCount } from "./status";
+import { approxCount, formatDensity } from "./status";
 
 interface Source {
   blob: Blob;
@@ -42,7 +44,10 @@ export default function App() {
   const [meta, setMeta] = useState<Metadata | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [part, setPart] = useState<Part | undefined>();
+  const [scene, setScene] = useState<Scene>("auto");
+  const [area, setArea] = useState<AreaValue>({ region: [] });
+  const [appliedArea, setAppliedArea] = useState<AreaValue | null>(null);
+  const [drawing, setDrawing] = useState(false);
   const [source, setSource] = useState<Source | null>(null);
   const [last, setLast] = useState<PredictResponse | null>(null);
   const resultHeading = useRef<HTMLHeadingElement>(null);
@@ -53,7 +58,7 @@ export default function App() {
     getMetadata(signal)
       .then((m) => {
         setMeta(m);
-        setPart(m.default_part);
+        setScene(m.routing_threshold != null ? "auto" : m.default_part);
       })
       .catch((e) => {
         if (!signal?.aborted) setMetaError(e.message);
@@ -69,45 +74,70 @@ export default function App() {
   // Object URLs hold the image in memory until revoked.
   useEffect(() => () => { if (source) URL.revokeObjectURL(source.url); }, [source]);
 
+  const partOf = (s: Scene): Part | undefined => (s === "auto" ? undefined : s);
+  const optionsFor = (s: Scene, a: AreaValue | null): RunOptions => ({
+    part: partOf(s),
+    areaM2: a?.areaM2,
+    region: a && a.region.length >= 3 ? a.region : undefined,
+  });
+
   const submit = useCallback(
-    (blob: Blob, name: string, p: Part | undefined) => {
+    (blob: Blob, name: string, options: RunOptions) => {
       setActionError(null);
       setLast(null); // a new photo has no previous result to show while it runs
+      setAppliedArea(null); // an area belongs to one photo
+      setArea({ region: [] });
+      setDrawing(false);
       setSource({ blob, name, url: URL.createObjectURL(blob) });
-      void run(blob, p);
+      void run(blob, options);
     },
     [run],
   );
 
-  const onFile = useCallback((f: File) => submit(f, f.name, part), [submit, part]);
+  const onFile = useCallback((f: File) => submit(f, f.name, { part: scene === "auto" ? undefined : scene }), [submit, scene]);
 
   const onSample = useCallback(
     async (sample: Sample) => {
-      // A sample is a scene for one model: choosing it selects that model, so the first result isn't a wrong-model one.
-      const p = meta?.models.some((m) => m.part === sample.part) ? sample.part : part;
-      setPart(p);
+      // With a fixed scene type a sample picks its own model, so the first result isn't a wrong-model one.
+      const s: Scene = scene !== "auto" && meta?.models.some((m) => m.part === sample.part) ? sample.part : scene;
+      setScene(s);
       try {
         const res = await fetch(sample.src);
         if (!res.ok) throw new Error(String(res.status));
-        submit(await res.blob(), sample.label, p);
+        submit(await res.blob(), sample.label, { part: s === "auto" ? undefined : s });
       } catch {
         setActionError("That sample image could not be loaded. Try another one, or upload your own photo.");
       }
     },
-    [submit, part, meta],
+    [submit, scene, meta],
   );
 
-  const onPart = (p: Part) => {
-    setPart(p);
-    if (source) void run(source.blob, p); // re-run the same image on the other model
+  const onScene = (s: Scene) => {
+    setScene(s);
+    if (source) void run(source.blob, optionsFor(s, appliedArea)); // re-run the same image on the other model
+  };
+
+  const onApplyArea = (v: AreaValue) => {
+    setAppliedArea(v);
+    if (source) void run(source.blob, optionsFor(scene, v));
+  };
+
+  const onRemoveArea = () => {
+    setAppliedArea(null);
+    setArea({ region: [] });
+    setDrawing(false);
+    if (source) void run(source.blob, optionsFor(scene, null));
   };
 
   const retry = () => {
-    if (source) void run(source.blob, part);
+    if (source) void run(source.blob, optionsFor(scene, appliedArea));
   };
 
   const clear = () => {
     reset();
+    setAppliedArea(null);
+    setArea({ region: [] });
+    setDrawing(false);
     setSource(null);
     setLast(null);
     setActionError(null);
@@ -131,20 +161,29 @@ export default function App() {
     resultTop.current?.scrollIntoView?.({ block: "start", behavior: reduce ? "auto" : "smooth" });
   }, [state]);
 
-  const modelSwitch =
-    meta && part ? (
-      <ModelSwitch models={meta.models} value={part} onChange={onPart} disabled={busy} />
-    ) : metaError ? (
-      <p className="text-sm text-muted">Scene type selection is unavailable right now, so the default model will be used.</p>
-    ) : null;
+  const sceneSwitch = (actions?: ReactNode) =>
+    meta ? (
+      <ModelSwitch models={meta.models} value={scene} onChange={onScene} disabled={busy} auto={meta.routing_threshold != null} actions={actions} />
+    ) : (
+      <div className="space-y-3">
+        {metaError && <p className="text-sm text-muted">Scene type selection is unavailable right now, so the default model will be used.</p>}
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      </div>
+    );
+
+  const clearButton = (
+    <button type="button" onClick={clear} disabled={busy} className="pill pill-ghost disabled:opacity-40">
+      Clear photo
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-page text-primary">
-      <main className="mx-auto w-full max-w-5xl space-y-10 px-6 py-10 md:space-y-14 md:py-14">
+      <main className="mx-auto w-full max-w-5xl space-y-10 px-6 py-10 md:space-y-10 md:py-14">
         <header>
           <div className="space-y-4">
             <h1 className="text-5xl leading-[1.05] md:text-6xl">Crowd Estimator</h1>
-            <p className="max-w-prose text-lg text-muted">Upload a crowd photo to get an estimate of the number of people and how they're spread out.</p>
+            <p className="text-lg text-muted">Upload a crowd photo to get an estimate of the number of people and how they're spread out.</p>
           </div>
         </header>
 
@@ -163,19 +202,26 @@ export default function App() {
 
         {!source && <SampleGallery onPick={onSample} disabled={busy} />}
 
-        {!source && modelSwitch}
+        {!source && sceneSwitch()}
 
         {source && (
+          <>
           <div className="grid gap-8 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <div ref={resultTop} className="scroll-mt-4 space-y-4">
               {shown ? (
                 <div aria-busy={stale} className="space-y-4">
-                  <HeatmapViewer originalUrl={source.url} heatmap={shown.heatmap} name={source.name} stale={stale} />
+                  <HeatmapViewer
+                    originalUrl={source.url}
+                    heatmap={shown.heatmap}
+                    name={source.name}
+                    stale={stale}
+                    overlay={<RegionOverlay points={area.region} drawing={drawing} onAdd={(p: Point) => setArea((a) => ({ ...a, region: [...a.region, p] }))} />}
+                  />
                   {!wide && (
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2" aria-hidden="true">
-                      <span className="font-display text-3xl font-medium tabular-nums">~{approxCount(shown.count)}</span>
-                      <span className="text-sm text-muted">people</span>
-                      <LevelBadge level={shown.level} />
+                      <span className="font-display text-3xl font-medium tabular-nums">{shown.density ? formatDensity(shown.density.people_per_m2) : `~${approxCount(shown.count)}`}</span>
+                      <span className="text-sm text-muted">{shown.density ? "people per m²" : "people"}</span>
+                      <LevelBadge level={shown.density ? shown.density.level : shown.level} byArea={!!shown.density} />
                     </div>
                   )}
                   {wide ? (
@@ -197,26 +243,36 @@ export default function App() {
               {state.status === "uploading" && <Progress fraction={state.progress} label={`Uploading… ${Math.round(state.progress * 100)}%`} />}
               {state.status === "inferring" && <Progress fraction={null} label="Analysing the image… this can take several seconds." />}
             </div>
-            <div className="space-y-6">
-              {modelSwitch}
+            <div className="space-y-4">
               {shown && (
                 <div aria-busy={stale}>
                   <ResultCard
                     result={shown}
                     headingRef={resultHeading}
                     stale={stale}
-                    partLabel={part ? MODEL_LABEL[part].name : undefined}
+                    partLabel={scene !== "auto" ? MODEL_LABEL[scene].name : undefined}
                   />
                 </div>
               )}
-              <button type="button" onClick={clear} disabled={busy} className="pill pill-ghost disabled:opacity-40">
-                Clear photo and result
-              </button>
+              {sceneSwitch(clearButton)}
             </div>
           </div>
+          {shown && (
+            <AreaPanel
+              value={area}
+              applied={appliedArea !== null}
+              drawing={drawing}
+              disabled={busy}
+              onDrawing={setDrawing}
+              onRegion={(region) => setArea((a) => ({ ...a, region }))}
+              onApply={onApplyArea}
+              onRemove={onRemoveArea}
+            />
+          )}
+          </>
         )}
 
-        <ReferenceStrip thresholds={meta?.thresholds} level={done?.level} />
+        <ReferenceStrip thresholds={meta?.thresholds} densityBands={meta?.density_bands} level={done?.density ? done.density.level : done?.level} byArea={!!done?.density} />
       </main>
     </div>
   );

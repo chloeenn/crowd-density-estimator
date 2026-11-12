@@ -1,0 +1,71 @@
+{
+  "summary": {
+    "run_id": "part_A-aug",
+    "part": "part_A",
+    "status": "finished",
+    "epochs_completed": 180,
+    "best": {
+      "epoch": 168,
+      "val_mae": 110.88565979003906,
+      "val_rmse": 210.72592447269543
+    },
+    "total_seconds": 7106.6,
+    "test": null
+  },
+  "config": {
+    "part": "part_A",
+    "raw": "data/ShanghaiTech",
+    "processed": "data/processed",
+    "runs_dir": "runs",
+    "run_id": "part_A-aug",
+    "publish_dir": "docs/runs",
+    "data": {
+      "crop_size": [
+        256,
+        256
+      ],
+      "val_fraction": 0.1,
+      "split_seed": 0,
+      "crops_per_image": 1,
+      "scale_range": [
+        0.8,
+        1.25
+      ],
+      "photometric": true
+    },
+    "epochs": 180,
+    "batch_size": 8,
+    "optimizer": "adam",
+    "lr": 1e-05,
+    "lr_schedule": "cosine",
+    "lr_min_factor": 0.01,
+    "momentum": 0.95,
+    "weight_decay": 0.0,
+    "freeze_frontend_epochs": 0,
+    "pretrained": true,
+    "ema_decay": 0.995,
+    "init_from": null,
+    "val_every": 1,
+    "patience": 0,
+    "num_workers": 4,
+    "device": "auto",
+    "seed": 0,
+    "resume": true
+  },
+  "env": {
+    "python": "3.11.4",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "device": "mps",
+    "cuda": null,
+    "torch": "2.15.0",
+    "torchvision": "0.29.2",
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "opencv": "5.0.0",
+    "h5py": "3.16.0",
+    "git": {
+      "sha": "24aadcd",
+      "dirty": true
+    }
+  }
+}

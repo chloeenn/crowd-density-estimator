@@ -34,13 +34,6 @@ def test_valid_image_returns_a_well_formed_body(client):
     assert body["model"] == {"version": "csrnet-partA-v1", "part": "A", "git_sha": "abc1234"}
     assert body["heatmap"].startswith("data:image/png;base64,")
     assert heatmap_size(body) == (120, 80)  # overlay is at the processed image size
-    basis = body["concentration_basis"]
-    assert (basis["processed_width"], basis["processed_height"], basis["cell_input_px"]) == (
-        120,
-        80,
-        8,
-    )
-    assert body["local_concentration"] <= body["max_concentration"]
     assert isinstance(body["inference_ms"], int) and body["inference_ms"] >= 0
     assert r.headers["x-request-id"] and r.headers["cache-control"] == "no-store"
 
@@ -64,15 +57,13 @@ def test_exif_orientation_is_applied(client):
     exif = Image.Exif()
     exif[0x0112] = 6  # rotate 90: a 120x80 file displays as 80x120
     r = post(client, encode(noise(120, 80), "JPEG", exif=exif))
-    basis = r.json()["concentration_basis"]
-    assert (basis["processed_width"], basis["processed_height"]) == (80, 120)
+    assert heatmap_size(r.json()) == (80, 120)  # the overlay has the processed (rotated) size
 
 
 def test_large_images_are_downscaled_to_the_long_side_limit(make_client):
     c = make_client(max_long_side=64)
     body = post(c, jpeg(400, 200)).json()
     assert heatmap_size(body) == (64, 32)
-    assert body["concentration_basis"]["processed_width"] == 64
 
 
 def test_model_switch_selects_the_requested_part(client):
@@ -94,20 +85,6 @@ def test_part_that_is_not_loaded_is_a_422_listing_what_is(make_client):
     r = post(c, jpeg(), part="B")
     assert r.status_code == 422 and r.json()["code"] == "model_unavailable"
     assert "Available: A" in r.json()["detail"]
-
-
-def test_fixed_scale_changes_the_heatmap_but_not_the_measurements(client):
-    data = jpeg()
-    auto, fixed = post(client, data).json(), post(client, data, scale_max=50.0).json()
-    assert auto["heatmap"] != fixed["heatmap"]
-    assert auto["max_concentration"] == fixed["max_concentration"]
-    assert auto["count"] == fixed["count"]
-
-
-@pytest.mark.parametrize("scale", [0, -1, 2_000_000, "abc"])
-def test_invalid_fixed_scale_is_rejected(client, scale):
-    r = post(client, jpeg(), scale_max=scale)
-    assert r.status_code == 422 and "scale_max" in r.json()["detail"]
 
 
 def test_prediction_is_deterministic(client):
@@ -146,3 +123,64 @@ def test_unexpected_failure_returns_a_generic_500_without_internals(client, monk
 def test_unknown_route_uses_the_same_error_shape(client):
     r = client.get("/api/nope")
     assert r.status_code == 404 and set(r.json()) == {"detail", "code"}
+
+
+REGION_LEFT = "[[0,0],[0.5,0],[0.5,1],[0,1]]"
+
+
+def test_no_density_without_an_area(client):
+    body = post(client, jpeg(120, 80)).json()
+    assert body["density"] is None and body["routed"] is False
+
+
+def test_area_gives_people_per_m2_and_a_level(client):
+    body = post(client, jpeg(120, 80), area_m2=25).json()
+    d = body["density"]
+    assert d["area_m2"] == 25 and d["in_region"] is False and d["units"] == "people per m^2"
+    assert d["people_per_m2"] == pytest.approx(body["count"] / 25, abs=0.02)
+    assert d["level"] in LEVELS and d["bands"] == {"medium": 1.0, "high": 2.0, "critical": 4.0}
+
+
+def test_region_counts_inside_the_polygon_only(client):
+    whole = post(client, jpeg(120, 80), area_m2=10).json()["density"]
+    left = post(client, jpeg(120, 80), area_m2=10, region=REGION_LEFT).json()["density"]
+    assert left["in_region"] is True and left["count"] <= whole["count"]
+
+
+@pytest.mark.parametrize(
+    ("params", "code"),
+    [
+        ({"area_m2": 0}, None),
+        ({"area_m2": -5}, None),
+        ({"region": REGION_LEFT}, "area_required"),
+        ({"area_m2": 10, "region": "not json"}, "bad_region"),
+        ({"area_m2": 10, "region": "[[0,0],[1,1]]"}, "bad_region"),
+        ({"area_m2": 10, "region": "[[0,0],[2,0],[1,1]]"}, "bad_region"),
+    ],
+)
+def test_bad_area_or_region_is_a_422(client, params, code):
+    r = post(client, jpeg(120, 80), **params)
+    assert r.status_code == 422
+    if code:
+        assert r.json()["code"] == code
+
+
+def test_auto_routing_uses_dense_model_above_threshold_and_sparse_below(make_client):
+    c = make_client()
+    service = c.app.state.service
+    service.routing_threshold = 1e9  # every count is below it -> sparse model
+    body = post(c, jpeg(120, 80)).json()
+    assert (body["routed"], body["model"]["part"]) == (True, "B")
+    service.routing_threshold = 0.0  # no count is below it -> dense model
+    body = post(c, jpeg(120, 80)).json()
+    assert (body["routed"], body["model"]["part"]) == (True, "A")
+    forced = post(c, jpeg(120, 80), part="B").json()  # an explicit part always wins
+    assert (forced["routed"], forced["model"]["part"]) == (False, "B")
+
+
+def test_metadata_reports_density_bands_and_routing(make_client):
+    c = make_client()
+    c.app.state.service.routing_threshold = 150.0
+    meta = c.get("/api/metadata").json()
+    assert meta["density_bands"] == {"medium": 1.0, "high": 2.0, "critical": 4.0}
+    assert meta["routing_threshold"] == 150.0

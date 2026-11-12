@@ -14,6 +14,8 @@
   --color-surface: #ffffff;
   --color-faint: #9b9b9b; /* decorative only, below text contrast */
   --color-line: #e8e8e6;
+  /* Soft fill for secondary buttons: visible on the page without an outline. */
+  --color-soft: #efeeea;
   /* Mid-weight fill for the High level badge: between the plain surface and the solid Critical badge. */
   --color-weight: #e6e6e1;
   /* Borders that carry meaning (controls, errors): >=3:1 against the page. */
@@ -70,8 +72,8 @@
   }
   .pill:hover:not(:disabled) { transform: scale(1.02); }
   .pill-solid { background: var(--color-primary); color: var(--color-page); }
-  .pill-ghost { background: transparent; color: var(--color-primary); box-shadow: inset 0 0 0 1px var(--color-line); }
-  .pill-ghost:hover:not(:disabled) { background: var(--color-surface); }
+  .pill-ghost { background: var(--color-soft); color: var(--color-primary); }
+  .pill-ghost:hover:not(:disabled) { background: var(--color-weight); }
   .pill-ghost[aria-pressed="true"] { background: var(--color-primary); color: var(--color-page); box-shadow: none; }
   /* Card: flat, 1rem radius, hairline border; lifts on hover. */
   .card {

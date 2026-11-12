@@ -10,6 +10,13 @@ import numpy as np
 
 from crowd.config import OUTPUT_STRIDE
 
+# Viridis: perceptually uniform, readable with the common forms of colour-blindness, and its
+# dense end (yellow) cannot be mistaken for the "Critical" red used for the density level in the
+# web app.
+# The web legend (web/src/components/ScaleLegend.tsx) draws these same stops; test_viz.py pins them.
+COLORMAP = cv2.COLORMAP_VIRIDIS
+LEGEND_STOPS = ("#440154", "#414487", "#2a788e", "#22a884", "#7ad151", "#fde725")  # sparse -> dense
+
 
 def crop_to_image(density: np.ndarray, image_hw: tuple[int, int]) -> np.ndarray:
     """Drop the padding that `pad_to_multiple` added, from a 1/8-resolution density map."""
@@ -20,7 +27,7 @@ def crop_to_image(density: np.ndarray, image_hw: tuple[int, int]) -> np.ndarray:
 def density_to_heatmap(
     density: np.ndarray, size_hw: tuple[int, int], vmax: float | None = None
 ) -> tuple[np.ndarray, float]:
-    """Colour a density map (blue = sparse, red = dense) at `size_hw` resolution.
+    """Colour a density map (dark purple = sparse, yellow = dense) at `size_hw` resolution.
 
     Normalised by `vmax` (default: the map's own maximum, for contrast). Returns the RGB
     uint8 heatmap and the `vmax` used, so a caller can label the colour scale or reuse the
@@ -31,7 +38,7 @@ def density_to_heatmap(
     norm = d / vmax if vmax > 0 else np.zeros_like(d)
     h, w = size_hw
     up = cv2.resize(norm, (w, h), interpolation=cv2.INTER_CUBIC)  # cubic can overshoot
-    heat = cv2.applyColorMap((np.clip(up, 0, 1) * 255).astype(np.uint8), cv2.COLORMAP_JET)
+    heat = cv2.applyColorMap((np.clip(up, 0, 1) * 255).astype(np.uint8), COLORMAP)
     return cv2.cvtColor(heat, cv2.COLOR_BGR2RGB), vmax
 
 

@@ -1,0 +1,24 @@
+# Run `make download-weights` first, then `docker compose up --wait` -> http://localhost:8080
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      MODEL_PATH: /models/csrnet-partA.pth
+      MODEL_PART: A
+      ALT_MODEL_PATH: /models/csrnet-partB.pth
+      CORS_ORIGINS: http://localhost:8080  # the browser only talks to nginx; no wildcard
+      TORCH_THREADS: "1"
+    volumes:
+      - ./models:/models:ro
+    mem_limit: 4g  # sized for a 1024 px photo on CPU
+    restart: unless-stopped
+  web:
+    build: ./web
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

@@ -1,4 +1,4 @@
-"""Guards for the silent failure modes of density-map generation (see docs/PLAN.md, Phase 1).
+"""Guards for the silent failure modes of density-map generation (see docs/training.md).
 
 These bugs raise no error. They produce a model with a useless MAE after smooth training.
 Run these tests before any training.
@@ -162,3 +162,32 @@ def test_val_split_is_deterministic_disjoint_and_sized():
     assert va1 == va2 and tr1 == tr2
     assert not set(tr1) & set(va1)
     assert len(tr1) + len(va1) == len(s) == 300 and len(va1) == 30
+
+
+def test_random_scale_crop_keeps_shape_and_head_count():
+    from crowd.data.dataset import random_scale_crop
+
+    rng = np.random.default_rng(0)
+    image = rng.integers(0, 255, (120, 160, 3), dtype=np.uint8)
+    density = np.zeros((120, 160), np.float32)
+    density[40:80, 50:110] = 1.0 / 40  # 60 heads spread over the middle
+    for _ in range(20):
+        im, d = random_scale_crop(image, density, (64, 64), rng, (0.5, 2.0))
+        assert im.shape == (64, 64, 3) and d.shape == (64, 64) and im.dtype == np.uint8
+        assert d.min() >= -1e-6
+    # A window covering all of the heads must keep their sum, whatever the zoom.
+    whole = np.zeros((64, 64), np.float32)
+    whole[16:48, 16:48] = 5.0 / (32 * 32)
+    wimg = np.zeros((64, 64, 3), np.uint8)
+    for _ in range(10):
+        _, d = random_scale_crop(wimg, whole, (64, 64), rng, (0.9, 1.1))
+        assert d.sum() <= 5.0 + 1e-3
+
+
+def test_photometric_jitter_stays_a_valid_image():
+    from crowd.data.dataset import photometric_jitter
+
+    rng = np.random.default_rng(1)
+    image = rng.integers(0, 255, (16, 16, 3), dtype=np.uint8)
+    out = photometric_jitter(image, rng)
+    assert out.shape == image.shape and out.dtype == np.uint8

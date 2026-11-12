@@ -98,5 +98,5 @@ def test_diagnosis_of_a_perfect_model_does_not_divide_by_zero():
 
 def test_part_a_mae_above_120_points_back_to_the_density_maps():
     lines = _diagnose("part_A", [0.0, 0.0], [300.0, 400.0])
-    assert any("Phase 1" in line for line in lines)
-    assert not any("Phase 1" in line for line in _diagnose("part_B", [0.0], [300.0]))
+    assert any("wrong density maps" in line for line in lines)
+    assert not any("wrong density maps" in line for line in _diagnose("part_B", [0.0], [300.0]))

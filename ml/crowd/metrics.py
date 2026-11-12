@@ -107,7 +107,7 @@ def diagnose(
         lines.append(f"The 10 worst images account for {worst10 / total_abs:.0%} of it.")
     if not verdict.passed and part == "part_A" and count_metrics(pred, truth).mae > 120:
         lines.append(
-            "Part A MAE above 120 points to wrong density maps; re-check Phase 1 "
+            "Part A MAE above 120 points to wrong density maps; re-check them "
             "(density sums and the 1/8 downsample) before tuning anything."
         )
     return lines

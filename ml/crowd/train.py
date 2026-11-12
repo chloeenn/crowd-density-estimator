@@ -11,6 +11,7 @@ checkpoints are selected on a validation split held out of train.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import logging
 import time
@@ -100,12 +101,18 @@ def fit(cfg: TrainConfig, train_s: list[Sample], val_s: list[Sample]) -> dict:
     manifest_sha = filelist_sha256(cfg.raw) if cfg.raw.exists() else "unavailable"
 
     model = CSRNet(pretrained=cfg.pretrained).to(device)  # seeded above -> reproducible init
+    if cfg.init_from and not resumed:
+        model.load_state_dict(load_checkpoint(cfg.init_from, map_location=device)["model"])
+        log.info("initialised from %s", cfg.init_from)
     optimizer = make_optimizer(cfg, model)
+    ema_model = copy.deepcopy(model).eval() if cfg.ema_decay > 0 else None
     start, elapsed = 0, 0.0
     best = {"epoch": -1, "val_mae": float("inf"), "val_rmse": None}
     if resumed:
         ckpt = load_checkpoint(run_dir / "last.pth", map_location=device)
         model.load_state_dict(ckpt["model"])
+        if ema_model is not None:
+            ema_model.load_state_dict(ckpt.get("ema", ckpt["model"]))
         optimizer.load_state_dict(ckpt["optimizer"])
         restore_rng(ckpt["rng"])
         start, elapsed, best = ckpt["epoch"] + 1, ckpt["elapsed_s"], ckpt["best"]
@@ -141,21 +148,30 @@ def fit(cfg: TrainConfig, train_s: list[Sample], val_s: list[Sample]) -> dict:
     log.info("run=%s device=%s train=%d val=%d", run_id, device, len(train_s), len(val_s))
     status, last_val, completed = "finished", None, start - 1
 
+    def on_step() -> None:
+        """Move the averaged weights a little towards the live ones after every update."""
+        if ema_model is None:
+            return
+        with torch.no_grad():
+            for avg, live in zip(ema_model.parameters(), model.parameters(), strict=True):
+                avg.mul_(cfg.ema_decay).add_(live.detach(), alpha=1 - cfg.ema_decay)
+
+    evaluated = ema_model if ema_model is not None else model  # what validation and best.pth use
     for epoch in range(start, cfg.epochs):
         t0 = time.time()
         train_loader.generator.manual_seed(cfg.seed + epoch)
         model.set_frontend_trainable(epoch >= cfg.freeze_frontend_epochs)
         for group in optimizer.param_groups:
             group["lr"] = lr_for_epoch(cfg, epoch)
-        loss = train_epoch(model, train_loader, optimizer, device)
+        loss = train_epoch(model, train_loader, optimizer, device, on_step)
 
         record = {"epoch": epoch, "train_loss": loss, "lr": optimizer.param_groups[0]["lr"]}
         if (epoch + 1) % cfg.val_every == 0 or epoch == cfg.epochs - 1:
-            last_val = validate(model, val_loader, device)
+            last_val = validate(evaluated, val_loader, device)
             record |= {"val_mae": last_val.mae, "val_rmse": last_val.rmse}
             if last_val.mae < best["val_mae"]:
                 best = {"epoch": epoch, "val_mae": last_val.mae, "val_rmse": last_val.rmse}
-                save_checkpoint(run_dir / "best.pth", model=model, meta=meta(epoch, last_val))
+                save_checkpoint(run_dir / "best.pth", model=evaluated, meta=meta(epoch, last_val))
         record["seconds"] = round(time.time() - t0, 1)
         elapsed += time.time() - t0
         completed = epoch
@@ -165,6 +181,7 @@ def fit(cfg: TrainConfig, train_s: list[Sample], val_s: list[Sample]) -> dict:
             model=model,
             meta=meta(epoch, last_val),
             optimizer=optimizer.state_dict(),
+            **({"ema": ema_model.state_dict()} if ema_model is not None else {}),
             epoch=epoch,
             best=best,
             rng=capture_rng(),
@@ -199,7 +216,7 @@ def _summary(run_id, cfg, epoch, best, elapsed, status) -> dict:
         "epochs_completed": epoch + 1,
         "best": best,
         "total_seconds": round(elapsed, 1),
-        "test": None,  # filled in by crowd.evaluate (Phase 4); never touched here
+        "test": None,  # filled in by crowd.evaluate; never touched here
     }
 
 
@@ -224,6 +241,14 @@ def parse_args(argv=None) -> tuple[TrainConfig, int]:
     ap.add_argument("--weight-decay", type=float, default=d.weight_decay)
     ap.add_argument("--freeze-frontend-epochs", type=int, default=d.freeze_frontend_epochs)
     ap.add_argument("--no-pretrained", action="store_true")
+    ap.add_argument(
+        "--augment", action="store_true", help="random zoom (0.8-1.25x) and photometric jitter"
+    )
+    ap.add_argument("--ema", type=float, default=d.ema_decay, help="weight average decay, 0=off")
+    ap.add_argument(
+        "--init-from", type=Path, default=None, help="start from a checkpoint's weights"
+    )
+    ap.add_argument("--crops-per-image", type=int, default=d.data.crops_per_image)
     ap.add_argument("--val-every", type=int, default=d.val_every)
     ap.add_argument("--patience", type=int, default=d.patience)
     ap.add_argument("--workers", type=int, default=d.num_workers)
@@ -245,7 +270,14 @@ def parse_args(argv=None) -> tuple[TrainConfig, int]:
         runs_dir=a.runs_dir,
         run_id=a.run_id,
         publish_dir=None if a.no_publish else a.publish_dir,
-        data=DatasetConfig(crop_size=(a.crop, a.crop)),
+        data=DatasetConfig(
+            crop_size=(a.crop, a.crop),
+            crops_per_image=a.crops_per_image,
+            scale_range=(0.8, 1.25) if a.augment else None,
+            photometric=a.augment,
+        ),
+        ema_decay=a.ema,
+        init_from=a.init_from,
         epochs=a.epochs,
         batch_size=a.batch_size,
         optimizer=a.optimizer,

@@ -245,3 +245,53 @@ def test_cli_defaults_and_overrides():
     )
     assert (cfg.part, cfg.data.crop_size, overfit) == ("part_B", (128, 128), 10)
     assert cfg.publish_dir is None and cfg.optimizer == "sgd"
+
+
+def test_crops_per_image_multiplies_the_training_epoch(tmp_path):
+    from crowd.config import DatasetConfig
+
+    samples = make_samples(tmp_path, 3)
+    cfg = DatasetConfig(crops_per_image=4)
+    assert len(CrowdDataset(samples, train=True, cfg=cfg)) == 12
+    assert len(CrowdDataset(samples, train=False, cfg=cfg)) == 3  # validation is one pass
+
+
+def test_init_from_starts_a_new_run_with_the_given_weights(tmp_path):
+    from dataclasses import replace
+
+    samples = make_samples(tmp_path, 4)
+    first = tiny_cfg(tmp_path, run_id="first")
+    fit(first, samples[:3], samples[3:])
+    second = replace(
+        tiny_cfg(tmp_path, run_id="second"), init_from=run_dir(first) / "best.pth", epochs=1
+    )
+    fit(second, samples[:3], samples[3:])
+    assert (run_dir(second) / "best.pth").exists()
+    assert json.loads((run_dir(second) / "metrics.jsonl").read_text().splitlines()[0])["epoch"] == 0
+
+
+def test_cli_accepts_init_from_and_crops_per_image():
+    cfg, _ = parse_args(["--init-from", "x.pth", "--crops-per-image", "3"])
+    assert str(cfg.init_from) == "x.pth" and cfg.data.crops_per_image == 3
+
+
+def test_ema_run_validates_and_saves_the_averaged_weights(tmp_path):
+    from dataclasses import replace
+
+    s = make_samples(tmp_path, 4)
+    cfg = replace(tiny_cfg(tmp_path, run_id="ema"), ema_decay=0.9)
+    fit(cfg, s[:3], s[3:])
+    ckpt = load_checkpoint(run_dir(cfg) / "last.pth")
+    assert "ema" in ckpt
+    live, avg = ckpt["model"], ckpt["ema"]
+    assert any(not torch.equal(live[k], avg[k]) for k in live)  # averaged, not a copy
+    assert (run_dir(cfg) / "best.pth").exists()
+    resumed = replace(cfg, resume=True, epochs=3)
+    fit(resumed, s[:3], s[3:])  # resume restores the average
+    assert log_lines(resumed)[-1]["epoch"] == 2
+
+
+def test_cli_augment_and_ema_flags():
+    cfg, _ = parse_args(["--augment", "--ema", "0.995"])
+    assert cfg.data.scale_range == (0.8, 1.25) and cfg.data.photometric
+    assert cfg.ema_decay == 0.995

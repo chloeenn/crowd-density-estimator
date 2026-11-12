@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { ApiFailure, predict } from "../api/client";
-import type { Part, PredictResponse } from "../api/types";
+import { ApiFailure, predict, type PredictOptions } from "../api/client";
+import type { PredictResponse } from "../api/types";
+
+export type RunOptions = Pick<PredictOptions, "part" | "areaM2" | "region">;
 
 export type State =
   | { status: "idle" }
@@ -39,14 +41,14 @@ export function usePrediction() {
   const [state, dispatch] = useReducer(reducer, { status: "idle" });
   const controller = useRef<AbortController | null>(null);
 
-  const run = useCallback(async (file: Blob, part?: Part) => {
+  const run = useCallback(async (file: Blob, options: RunOptions = {}) => {
     controller.current?.abort();
     const ctl = new AbortController();
     controller.current = ctl;
     dispatch({ type: "start" });
     try {
       const result = await predict(file, {
-        part,
+        ...options,
         signal: ctl.signal,
         onUploadProgress: (f) => {
           if (ctl.signal.aborted) return;

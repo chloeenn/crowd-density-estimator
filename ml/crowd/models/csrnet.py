@@ -53,7 +53,7 @@ class CSRNet(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def set_frontend_trainable(self, trainable: bool) -> None:
-        """Freeze/unfreeze the pretrained frontend (optional warmup; see docs/PLAN.md, Phase 3)."""
+        """Freeze/unfreeze the pretrained frontend (optional warmup)."""
         for p in self.frontend.parameters():
             p.requires_grad = trainable
 

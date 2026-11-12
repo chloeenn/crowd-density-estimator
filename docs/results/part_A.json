@@ -1,0 +1,123 @@
+{
+  "part": "part_A",
+  "split": "test",
+  "run_id": "part_A-soup",
+  "checkpoint": "best.pth",
+  "epoch": 54,
+  "model_version": "csrnet-partA-v1",
+  "git_sha": "24aadcd",
+  "dataset_manifest_sha": "4a68ff0b91797b5b7c4f3742fe9403663eeb0ece00a3af539513137abc3fd739",
+  "evaluated_at": "2026-11-11T19:08:40",
+  "n": 182,
+  "mae": 85.83097267150879,
+  "rmse": 122.821449676502,
+  "bias": 21.216508068881193,
+  "acceptance": {
+    "mae_bar": 85.0,
+    "rmse_bar": 135.0,
+    "mae_ok": false,
+    "rmse_ok": true,
+    "passed": false
+  },
+  "published": {
+    "mae": 68.2,
+    "rmse": 115.0
+  },
+  "buckets": [
+    {
+      "label": "0-99",
+      "n": 7,
+      "mae": 37.498747144426616,
+      "rmse": 70.46283872187612,
+      "bias": 22.36515317644392
+    },
+    {
+      "label": "100-499",
+      "n": 129,
+      "mae": 68.33202492174252,
+      "rmse": 95.6500677036175,
+      "bias": 26.465568897336027
+    },
+    {
+      "label": "500-999",
+      "n": 28,
+      "mae": 107.71802520751953,
+      "rmse": 136.3633671886925,
+      "bias": 3.947162083217076
+    },
+    {
+      "label": "1000+",
+      "n": 18,
+      "mae": 195.98943752712674,
+      "rmse": 236.86176123680136,
+      "bias": 10.01497056749132
+    }
+  ],
+  "worst": [
+    {
+      "image": "IMG_8.jpg",
+      "truth": 1326.0,
+      "pred": 872.547119140625,
+      "error": -453.452880859375
+    },
+    {
+      "image": "IMG_104.jpg",
+      "truth": 1175.0001220703125,
+      "pred": 1607.166015625,
+      "error": 432.1658935546875
+    },
+    {
+      "image": "IMG_63.jpg",
+      "truth": 1121.0,
+      "pred": 1512.5477294921875,
+      "error": 391.5477294921875
+    },
+    {
+      "image": "IMG_54.jpg",
+      "truth": 529.0,
+      "pred": 871.2702026367188,
+      "error": 342.27020263671875
+    },
+    {
+      "image": "IMG_101.jpg",
+      "truth": 211.0,
+      "pred": 543.3043212890625,
+      "error": 332.3043212890625
+    },
+    {
+      "image": "IMG_1.jpg",
+      "truth": 172.0,
+      "pred": 500.7039794921875,
+      "error": 328.7039794921875
+    },
+    {
+      "image": "IMG_127.jpg",
+      "truth": 986.0000610351562,
+      "pred": 685.035400390625,
+      "error": -300.96466064453125
+    },
+    {
+      "image": "IMG_50.jpg",
+      "truth": 997.0,
+      "pred": 697.0164794921875,
+      "error": -299.9835205078125
+    },
+    {
+      "image": "IMG_122.jpg",
+      "truth": 1153.0,
+      "pred": 854.5426025390625,
+      "error": -298.4573974609375
+    },
+    {
+      "image": "IMG_175.jpg",
+      "truth": 442.0,
+      "pred": 737.8307495117188,
+      "error": 295.83074951171875
+    }
+  ],
+  "diagnosis": [
+    "On average the model overcounts by 21.2 people per image (4.9% of the mean ground-truth count of 433).",
+    "The 100-499 count bucket (129 images) accounts for 56% of the total absolute error.",
+    "The 10 worst images account for 22% of it."
+  ]
+}

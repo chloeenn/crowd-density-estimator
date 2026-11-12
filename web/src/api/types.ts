@@ -8,18 +8,31 @@ export interface Thresholds {
   critical: number;
 }
 
+export type Scene = Part | "auto";
+export type Point = [number, number];
+
+export interface DensityBands {
+  medium: number;
+  high: number;
+  critical: number;
+}
+
+export interface DensityResult {
+  people_per_m2: number;
+  level: Level;
+  area_m2: number;
+  count: number;
+  in_region: boolean;
+  bands: DensityBands;
+  units: string;
+}
+
 export interface PredictResponse {
   count: number;
   level: Level;
-  local_concentration: number;
-  max_concentration: number;
-  concentration_basis: {
-    cell_input_px: number;
-    processed_width: number;
-    processed_height: number;
-    units: string;
-  };
   thresholds: Thresholds;
+  density: DensityResult | null;
+  routed: boolean;
   model: { version: string; part: string; git_sha: string };
   heatmap: string;
   inference_ms: number;
@@ -39,6 +52,7 @@ export interface Metadata {
   default_part: Part;
   models: ModelDetail[];
   thresholds: Thresholds;
-  level_caveat: string;
+  density_bands: DensityBands;
+  routing_threshold: number | null;
   limits: { max_upload_mb: number; allowed_content_types: string[] };
 }
