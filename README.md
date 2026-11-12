@@ -1,36 +1,30 @@
 # Crowd Estimator
 
-Upload a photo of a crowd and get an estimate of how many people are in it, how tightly they are packed,
-and a heatmap of where they stand.
+Upload a photo of a crowd and get a head count, a crowding level and a heatmap of where people stand.
 
 ![Demo: upload a photo, get a count and heatmap, then add the area for people per m²](docs/images/demo.gif)
 
-## What you get
+## Features
 
-- **A head count and a heatmap.** Brighter colours show where more people are.
-- **People per m².** Tell the app how big the ground is (the whole photo, or an area you outline on it) and it
-  rates the crowding from Low to Critical. A head count alone cannot say this: 500 people are roomy in a big
-  space and tight in a small one.
-- **The right model for the photo.** One model is trained for packed crowds and another for streets and open
-  spaces. The app picks between them for you, and you can force one if you want.
+- **Count and heatmap.** Brighter colours mean more people.
+- **People per m².** Give the ground area (the whole photo or an outlined region) and the app rates crowding
+  from Low to Critical.
+- **Automatic model choice.** One model handles packed crowds, another handles sparse scenes. The app picks,
+  or you can force one.
 
-| Count, heatmap and the area form | People per m² for an outlined area |
+| Count, heatmap and area form | People per m² for an outlined area |
 |---|---|
 | ![Estimate with heatmap overlay and the area form](docs/images/result.png) | ![Density for an area outlined on the photo](docs/images/region.png) |
 
-## Try it
+## Quick start
 
-You need the two model files in `models/` (see [docs/operations.md](docs/operations.md#model-files)).
-
-**With Docker** (Docker with Compose):
+Put the two model files in `models/` (see [docs/operations.md](docs/operations.md#model-files)), then:
 
 ```shell
-make docker-up
+make docker-up          # Docker + Compose, then open http://localhost:8080
 ```
 
-Open <http://localhost:8080>.
-
-**Without Docker** (Python 3.11 and Node 22):
+Or without Docker (Python 3.11, Node 22):
 
 ```shell
 make setup                                        # environment and dependencies
@@ -38,9 +32,9 @@ ALT_MODEL_PATH=models/csrnet-partB.pth make api   # API on :8000
 make web                                          # web app on :5173
 ```
 
-`make help` lists every command, including `make test` and `make lint`.
+`make help` lists all commands, including `make test` and `make lint`.
 
-## Use the API
+## API
 
 ```shell
 curl -F file=@photo.jpg "http://localhost:8080/api/predict"
@@ -50,26 +44,25 @@ curl -F file=@photo.jpg "http://localhost:8080/api/predict?area_m2=60&region=[[0
 
 | Parameter | Meaning |
 |---|---|
-| `area_m2` | Ground area in m². Adds `density` to the answer: people per m² and its level |
-| `region` | An outline `[[x, y], ...]` with x and y from 0 to 1 (fractions of the photo). Then `area_m2` is the size of that outlined area, and only people inside it are counted |
-| `part` | `A` (dense crowds) or `B` (sparse scenes) forces one model. Leave it out to let the app choose |
+| `area_m2` | Ground area in m². Adds `density` (people per m² and level) to the response |
+| `region` | Outline `[[x, y], ...]` with x, y in 0–1 (fractions of the photo). Only people inside are counted, and `area_m2` is the size of this region |
+| `part` | `A` (dense) or `B` (sparse) forces a model. Omit to auto-select |
 
-The answer contains `count`, `level`, `density` (when you gave an area), a base64 PNG `heatmap` and the
-`model` that was used. Problems come back as `{"detail": "...", "code": "..."}` with status 400, 413, 415,
-422 or 503 (busy, with a `Retry-After` header).
+The response has `count`, `level`, `density` (if an area was given), a base64 PNG `heatmap` and the `model`
+used. Errors return `{"detail": "...", "code": "..."}` with status 400, 413, 415, 422 or 503 (busy, with a
+`Retry-After` header).
 
-## How accurate is it?
+## Accuracy
 
-Measured on ShanghaiTech test photos that were never used for training or tuning:
+Measured on ShanghaiTech test photos not used for training or tuning:
 
-| Model | Photos | Average miss (MAE) | RMSE |
+| Model | Photos | MAE (average miss) | RMSE |
 |---|---|---|---|
 | Dense crowds | 182 | 85.8 people | 122.8 |
 | Sparse scenes | 316 | 11.7 people | 18.6 |
 
-The CSRNet paper reports 68.2 and 10.6 for the same measure. Counting people is hard and single photos can be
-well off, so treat the numbers as estimates. How the models were trained, what was tried and the worst
-predictions are in [docs/training.md](docs/training.md) and [docs/results.md](docs/results.md).
+The CSRNet paper reports 68.2 and 10.6. Single photos can be well off, so treat counts as estimates. Details:
+[docs/training.md](docs/training.md), [docs/results.md](docs/results.md).
 
 ## How it works
 
@@ -84,43 +77,41 @@ flowchart LR
     D -->|overlay| G[Heatmap]
 ```
 
-Each model is a [CSRNet](https://arxiv.org/abs/1802.10062) that turns a photo into a "density map": a
-picture where every person is a small blob adding up to one. The count is the sum of the map, and the
-heatmap is the map drawn over your photo. It is built with PyTorch, FastAPI, React, Vite and Tailwind.
+Each model is a [CSRNet](https://arxiv.org/abs/1802.10062) that turns a photo into a density map, where each
+person is a blob summing to one. The count is the map's sum; the heatmap is the map drawn over the photo.
+Built with PyTorch, FastAPI, React, Vite and Tailwind.
 
 ## Settings
 
-The API is configured with environment variables. The common ones:
+Environment variables (full list in [api/.env.example](api/.env.example) and
+[docs/operations.md](docs/operations.md)):
 
-| Variable | Default | What it does |
+| Variable | Default | Purpose |
 |---|---|---|
-| `MODEL_PATH` | `models/csrnet-partA.pth` | The dense-crowd model. `ALT_MODEL_PATH` adds the sparse-scene model and turns on automatic choice |
-| `MAX_UPLOAD_MB` | `10` | Largest file accepted |
-| `CORS_ORIGINS` | `http://localhost:5173` | Browser origins allowed to call the API |
-| `MAX_QUEUE` | `4` | Requests allowed to wait before the API answers `503` |
+| `MODEL_PATH` | `models/csrnet-partA.pth` | Dense-crowd model |
+| `ALT_MODEL_PATH` | none | Sparse-scene model; enables automatic choice |
+| `MAX_UPLOAD_MB` | `10` | Largest accepted file |
+| `CORS_ORIGINS` | `http://localhost:5173` | Allowed browser origins |
+| `MAX_QUEUE` | `4` | Waiting requests before the API returns `503` |
 
-All of them are in [api/.env.example](api/.env.example) and explained in [docs/operations.md](docs/operations.md).
-
-## What is in the repo
+## Repo layout
 
 ```text
-api/        FastAPI service and its tests
-ml/         Model, training, evaluation, tests and a Colab notebook
+api/        FastAPI service and tests
+ml/         Model, training, evaluation, tests, Colab notebook
 web/        React app
 scripts/    Model file checks
-models/     Model files (not committed) and their checksums
+models/     Model files (not committed) and checksums
 data/       ShanghaiTech dataset (not committed)
-docs/       Guides, results and screenshots
+docs/       Guides, results, screenshots
 ```
 
-- [docs/training.md](docs/training.md): the data, how the models were trained, results, how to repeat it
-- [docs/architecture.md](docs/architecture.md): how a photo flows through training and the API
-- [docs/operations.md](docs/operations.md): running, settings, privacy and automated checks
-- [CONTRIBUTING.md](CONTRIBUTING.md): ground rules for changes
+Docs: [training](docs/training.md) · [architecture](docs/architecture.md) · [operations](docs/operations.md) ·
+[CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Credits
 
-- Li, Zhang and Chen, [*CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes*](https://arxiv.org/abs/1802.10062), CVPR 2018
-- Zhang et al., *Single-Image Crowd Counting via Multi-Column Convolutional Neural Network* (the ShanghaiTech dataset), CVPR 2016
+- Li, Zhang and Chen, [*CSRNet*](https://arxiv.org/abs/1802.10062), CVPR 2018
+- Zhang et al., *Single-Image Crowd Counting via Multi-Column Convolutional Neural Network* (ShanghaiTech dataset), CVPR 2016
 
-The sample photos and screenshots come from the ShanghaiTech test set and are used for demonstration only.
+Sample photos and screenshots come from the ShanghaiTech test set, for demonstration only.
