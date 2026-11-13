@@ -51,6 +51,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Load before serving: a bad checkpoint (missing, wrong part, preprocessing mismatch)
         # makes startup fail, so the server refuses to start instead of serving wrong answers.
         app.state.service = await asyncio.to_thread(InferenceService.from_settings, settings)
+        app.state.detector = None
+        if settings.detector_path:
+            from crowd.detect import Detector
+
+            app.state.detector = await asyncio.to_thread(
+                Detector, settings.detector_path, settings.detector_conf, settings.device
+            )
+            log.info("loaded detector %s", settings.detector_path.name)
         log.info("ready: models %s", sorted(app.state.service.predictors))
         yield
 

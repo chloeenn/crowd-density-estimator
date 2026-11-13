@@ -19,6 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+detect = ["ultralytics>=8.3"]  # labelled boxes (`crowd.detect`); optional
 eval = ["matplotlib>=3.8"]  # offline plots in `crowd.evaluate`; the API does not need it
 dev = ["pytest>=8", "ruff>=0.5", "matplotlib>=3.8"]
 

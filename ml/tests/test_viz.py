@@ -75,3 +75,14 @@ def test_png_data_uri_roundtrips_pixels_exactly():
     raw = np.frombuffer(base64.b64decode(uri.split(",", 1)[1]), np.uint8)
     decoded = cv2.cvtColor(cv2.imdecode(raw, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
     assert np.array_equal(decoded, rgb)  # PNG is lossless; channel order preserved
+
+
+def test_draw_label_changes_only_the_label_area_and_copies():
+    from crowd.viz import draw_label
+
+    img = np.full((200, 300, 3), 200, np.uint8)
+    out = draw_label(img, ["42 people - High"])
+    assert (img == 200).all()  # input untouched
+    assert not (out[:40, :150] == 200).all()  # label drawn top-left
+    assert (out[150:, 150:] == 200).all()  # rest unchanged
+    assert (draw_label(img, []) == img).all()

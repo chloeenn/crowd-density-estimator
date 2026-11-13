@@ -51,6 +51,32 @@ def overlay_heatmap(
     return cv2.addWeighted(image, 1.0 - alpha, heat, alpha, 0.0), vmax
 
 
+def draw_label(image: np.ndarray, lines: list[str]) -> np.ndarray:
+    """Burn a text label (one string per line) onto the top-left of an RGB uint8 image.
+
+    White text on a dark translucent panel so it stays readable on any background. The font
+    scales with the image so small and large photos both get a legible label. Returns a copy.
+    """
+    out = image.copy()
+    if not lines:
+        return out
+    h, w = out.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    scale = max(0.4, min(h, w) / 700)
+    thick = max(1, round(scale * 2))
+    pad = max(4, round(10 * scale))
+    sizes = [cv2.getTextSize(t, font, scale, thick)[0] for t in lines]
+    line_h = max(sz[1] for sz in sizes) + pad
+    box_w = min(w, max(sz[0] for sz in sizes) + 2 * pad)
+    box_h = min(h, line_h * len(lines) + pad)
+    panel = out[:box_h, :box_w]
+    out[:box_h, :box_w] = cv2.addWeighted(panel, 0.4, np.zeros_like(panel), 0.6, 0.0)
+    for i, text in enumerate(lines):
+        y = pad + line_h * i + sizes[i][1]
+        cv2.putText(out, text, (pad, y), font, scale, (255, 255, 255), thick, cv2.LINE_AA)
+    return out
+
+
 def to_png_data_uri(rgb: np.ndarray, compression: int = 3) -> str:
     """Encode an RGB uint8 image as an inline `data:image/png;base64,...` URI.
 

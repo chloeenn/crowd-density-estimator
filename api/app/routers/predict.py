@@ -15,15 +15,16 @@ from crowd.area import (
     parse_region,
     people_per_m2,
 )
+from crowd.detect import draw_detections
 from crowd.levels import level_for_count, load_thresholds
-from crowd.viz import overlay_heatmap, to_png_data_uri
+from crowd.viz import draw_label, overlay_heatmap, to_png_data_uri
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 
 from app.config import Settings
 from app.deps import get_service, get_settings
 from app.errors import ApiError
 from app.inference import InferenceService
-from app.schemas import PredictResponse
+from app.schemas import DetectionResult, PredictResponse
 from app.uploads import check_content_type, decode_image, read_bytes
 
 router = APIRouter()
@@ -55,7 +56,20 @@ async def predict(
         str | None,
         Query(description="Polygon [[x, y], ...] with x, y in 0..1 marking where that area is"),
     ] = None,
+    label: Annotated[
+        bool,
+        Query(description="Burn the count, level and density onto the returned image"),
+    ] = False,
+    detect: Annotated[
+        bool,
+        Query(description="Also return labelled bounding boxes (needs DETECTOR_PATH)"),
+    ] = False,
 ) -> PredictResponse:
+    detector = getattr(request.app.state, "detector", None)
+    if detect and detector is None:
+        raise ApiError(
+            422, "detector_unavailable", "Object detection is not enabled on this server."
+        )
     if part is not None:
         service.get(part)  # reject an unloaded model before reading the upload
     points = _parse_region(region, area_m2)
@@ -70,9 +84,18 @@ async def predict(
     request.state.inference_ms = inference_ms
     request.state.part = predictor.part
 
-    return await asyncio.to_thread(
-        build_response, predictor, prediction, inference_ms, routed, area_m2, points
+    response = await asyncio.to_thread(
+        build_response, predictor, prediction, inference_ms, routed, area_m2, points, label
     )
+    if detect:
+        async with service.slot():
+            found = await asyncio.to_thread(detector.detect, prediction.image)
+        response.detections = [
+            DetectionResult(label=d.label, confidence=d.confidence, box=d.box) for d in found
+        ]
+        drawn = await asyncio.to_thread(draw_detections, prediction.image, found)
+        response.detections_image = to_png_data_uri(drawn)
+    return response
 
 
 def _parse_region(region: str | None, area_m2: float | None):
@@ -93,6 +116,7 @@ def build_response(
     routed: bool = False,
     area_m2: float | None = None,
     points=None,
+    label: bool = False,
 ) -> PredictResponse:
     """Turn a `Prediction` into the response body (levels, density, heatmap)."""
     thresholds = load_thresholds()
@@ -110,11 +134,17 @@ def build_response(
             "bands": DENSITY_BANDS,
             "units": DENSITY_UNITS,
         }
+    level = level_for_count(prediction.count, thresholds["bands"])
+    if label:
+        lines = [f"{round(prediction.count)} people - {level}"]
+        if density:
+            lines.append(f"{density['people_per_m2']} people/m2 - {density['level']}")
+        overlay = draw_label(overlay, lines)
     return PredictResponse(
         density=density,
         routed=routed,
         count=round(prediction.count, 1),
-        level=level_for_count(prediction.count, thresholds["bands"]),
+        level=level,
         thresholds=thresholds["bands"],
         model={
             "version": predictor.version,

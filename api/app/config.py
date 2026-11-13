@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     model_part: Literal["A", "B"] = "A"
     alt_model_path: Path | None = None  # other part's model; enables auto routing
 
+    # Optional object detector (YOLO weights) for `?detect=true` labelled boxes. Off when unset.
+    detector_path: Path | None = None
+    detector_conf: float = 0.3
+
     auto_route: bool = True  # choose the model per photo when both are loaded (see crowd.routing)
 
     # Upload limits.
