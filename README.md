@@ -2,19 +2,22 @@
 
 Upload a photo of a crowd and get a head count, a crowding level and a heatmap of where people stand.
 
-![Demo: upload a photo, get a count and heatmap, then add the area for people per m²](docs/images/demo.gif)
+![Demo: pick a photo, see labelled objects and the heatmap, then outline an area for people per m²](docs/images/demo.gif)
 
 ## Features
 
 - **Count and heatmap.** Brighter colours mean more people.
+- **Labelled objects.** Boxes with class names (person, backpack, car...) drawn on the photo, in an
+  **Objects** view that opens first. Needs a YOLO detector, see
+  [docs/operations.md](docs/operations.md#labelled-objects).
 - **People per m².** Give the ground area (the whole photo or an outlined region) and the app rates crowding
   from Low to Critical.
 - **Automatic model choice.** One model handles packed crowds, another handles sparse scenes. The app picks,
   or you can force one.
 
-| Count, heatmap and area form | People per m² for an outlined area |
+| Count, heatmap and area form | Labelled objects and people per m² for an outlined area |
 |---|---|
-| ![Estimate with heatmap overlay and the area form](docs/images/result.png) | ![Density for an area outlined on the photo](docs/images/region.png) |
+| ![Estimate with heatmap overlay and the area form](docs/images/result.png) | ![Labelled objects and density for an area outlined on the photo](docs/images/region.png) |
 
 ## Quick start
 
@@ -46,6 +49,8 @@ curl -F file=@photo.jpg "http://localhost:8080/api/predict?area_m2=60&region=[[0
 |---|---|
 | `area_m2` | Ground area in m². Adds `density` (people per m² and level) to the response |
 | `region` | Outline `[[x, y], ...]` with x, y in 0–1 (fractions of the photo). Only people inside are counted, and `area_m2` is the size of this region |
+| `label` | `true` burns the count, level and density as text onto the returned image |
+| `detect` | `true` also returns labelled object boxes (`detections`, `detections_image`). Needs a YOLO detector, see [operations](docs/operations.md#labelled-objects) |
 | `part` | `A` (dense) or `B` (sparse) forces a model. Omit to auto-select |
 
 The response has `count`, `level`, `density` (if an area was given), a base64 PNG `heatmap` and the `model`

@@ -30,6 +30,7 @@ async def health(request: Request):
 
 @router.get("/metadata", response_model=MetadataResponse)
 async def metadata(
+    request: Request,
     service: Annotated[InferenceService, Depends(get_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ):
@@ -53,6 +54,7 @@ async def metadata(
         )
     info_keys = ("split", "n_images", "parts_pooled", "validation_seed", "calibrated")
     return MetadataResponse(
+        detector_enabled=getattr(request.app.state, "detector", None) is not None,
         default_part=service.default_part,
         models=models,
         thresholds=thresholds["bands"],

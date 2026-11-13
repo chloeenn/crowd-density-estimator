@@ -38,6 +38,12 @@ class ModelInfo(BaseModel):
     git_sha: str
 
 
+class DetectionResult(BaseModel):
+    label: str
+    confidence: float
+    box: tuple[int, int, int, int]  # x1, y1, x2, y2 in pixels of the returned images
+
+
 class PredictResponse(BaseModel):
     count: float
     level: Literal["Low", "Medium", "High", "Critical"]
@@ -47,6 +53,8 @@ class PredictResponse(BaseModel):
     model: ModelInfo
     heatmap: str  # data:image/png;base64,...
     inference_ms: int
+    detections: list[DetectionResult] | None = None  # only with ?detect=true
+    detections_image: str | None = None  # photo with labelled boxes, data:image/png;base64,...
 
 
 class HealthResponse(BaseModel):
@@ -77,3 +85,4 @@ class MetadataResponse(BaseModel):
     density_bands: DensityBands
     routing_threshold: float | None
     limits: Limits
+    detector_enabled: bool = False  # ?detect=true is available

@@ -184,3 +184,39 @@ def test_metadata_reports_density_bands_and_routing(make_client):
     meta = c.get("/api/metadata").json()
     assert meta["density_bands"] == {"medium": 1.0, "high": 2.0, "critical": 4.0}
     assert meta["routing_threshold"] == 150.0
+
+
+def test_label_burns_text_onto_the_image_without_changing_the_numbers(client):
+    data = jpeg(300, 200)
+    plain = post(client, data).json()
+    labelled = post(client, data, label="true").json()
+    assert labelled["count"] == plain["count"] and labelled["level"] == plain["level"]
+    assert labelled["heatmap"] != plain["heatmap"]
+    assert heatmap_size(labelled) == heatmap_size(plain)
+
+
+class FakeDetector:
+    def detect(self, image):
+        from crowd.detect import Detection
+
+        h, w = image.shape[:2]
+        return [
+            Detection("person", 0.9, (1, 1, w // 2, h // 2)),
+            Detection("car", 0.8, (5, 5, 20, 20)),
+        ]
+
+
+def test_detect_returns_labelled_boxes_and_an_image(make_client):
+    c = make_client()
+    c.app.state.detector = FakeDetector()
+    body = post(c, jpeg(120, 80), detect="true").json()
+    assert [d["label"] for d in body["detections"]] == ["person", "car"]
+    assert body["detections"][0]["box"] == [1, 1, 60, 40]
+    assert body["detections_image"].startswith("data:image/png;base64,")
+    assert "detections" in PredictResponse.model_validate(body).model_fields_set
+
+
+def test_detect_is_absent_by_default_and_422_when_not_enabled(client):
+    assert post(client, jpeg(120, 80)).json()["detections"] is None
+    r = post(client, jpeg(120, 80), detect="true")
+    assert r.status_code == 422 and r.json()["code"] == "detector_unavailable"

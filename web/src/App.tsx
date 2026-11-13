@@ -75,11 +75,15 @@ export default function App() {
   useEffect(() => () => { if (source) URL.revokeObjectURL(source.url); }, [source]);
 
   const partOf = (s: Scene): Part | undefined => (s === "auto" ? undefined : s);
-  const optionsFor = (s: Scene, a: AreaValue | null): RunOptions => ({
-    part: partOf(s),
-    areaM2: a?.areaM2,
-    region: a && a.region.length >= 3 ? a.region : undefined,
-  });
+  const optionsFor = useCallback(
+    (s: Scene, a: AreaValue | null): RunOptions => ({
+      part: partOf(s),
+      areaM2: a?.areaM2,
+      region: a && a.region.length >= 3 ? a.region : undefined,
+      detect: meta?.detector_enabled,
+    }),
+    [meta],
+  );
 
   const submit = useCallback(
     (blob: Blob, name: string, options: RunOptions) => {
@@ -94,7 +98,7 @@ export default function App() {
     [run],
   );
 
-  const onFile = useCallback((f: File) => submit(f, f.name, { part: scene === "auto" ? undefined : scene }), [submit, scene]);
+  const onFile = useCallback((f: File) => submit(f, f.name, { ...optionsFor(scene, null) }), [submit, scene, optionsFor]);
 
   const onSample = useCallback(
     async (sample: Sample) => {
@@ -104,12 +108,12 @@ export default function App() {
       try {
         const res = await fetch(sample.src);
         if (!res.ok) throw new Error(String(res.status));
-        submit(await res.blob(), sample.label, { part: s === "auto" ? undefined : s });
+        submit(await res.blob(), sample.label, optionsFor(s, null));
       } catch {
         setActionError("That sample image could not be loaded. Try another one, or upload your own photo.");
       }
     },
-    [submit, scene, meta],
+    [submit, scene, meta, optionsFor],
   );
 
   const onScene = (s: Scene) => {
@@ -180,8 +184,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-page text-primary">
       <main className="mx-auto w-full max-w-5xl space-y-10 px-6 py-10 md:space-y-10 md:py-14">
-        <header>
-          <div className="space-y-4">
+        <header className="mb-4">
+          <div className="space-y-2">
             <h1 className="text-5xl leading-[1.05] md:text-6xl">Crowd Estimator</h1>
             <p className="text-lg text-muted">Upload a crowd photo to get an estimate of the number of people and how they're spread out.</p>
           </div>
@@ -213,8 +217,21 @@ export default function App() {
                   <HeatmapViewer
                     originalUrl={source.url}
                     heatmap={shown.heatmap}
+                    objectsImage={shown.detections_image ?? undefined}
                     name={source.name}
                     stale={stale}
+                    legend={
+                      wide ? (
+                        <ScaleLegend />
+                      ) : (
+                        <details>
+                          <summary className="pill pill-ghost cursor-pointer list-none">What do the colours mean?</summary>
+                          <div className="pt-3">
+                            <ScaleLegend />
+                          </div>
+                        </details>
+                      )
+                    }
                     overlay={<RegionOverlay points={area.region} drawing={drawing} onAdd={(p: Point) => setArea((a) => ({ ...a, region: [...a.region, p] }))} />}
                   />
                   {!wide && (
@@ -223,16 +240,6 @@ export default function App() {
                       <span className="text-sm text-muted">{shown.density ? "people per m²" : "people"}</span>
                       <LevelBadge level={shown.density ? shown.density.level : shown.level} byArea={!!shown.density} />
                     </div>
-                  )}
-                  {wide ? (
-                    <ScaleLegend />
-                  ) : (
-                    <details>
-                      <summary className="pill pill-ghost cursor-pointer list-none">What do the colours mean?</summary>
-                      <div className="pt-3">
-                        <ScaleLegend />
-                      </div>
-                    </details>
                   )}
                 </div>
               ) : (

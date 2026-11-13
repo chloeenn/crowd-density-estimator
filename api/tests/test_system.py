@@ -41,6 +41,7 @@ def test_metadata_describes_models_thresholds_and_limits(client):
     )
     assert body["thresholds"] == load_thresholds()["bands"]
     assert body["thresholds_info"]["split"] == "train_data minus validation"
+    assert body["detector_enabled"] is False
     limits = body["limits"]
     assert limits["max_upload_mb"] == 10 and limits["allowed_content_types"] == [
         "image/jpeg", "image/png", "image/webp",

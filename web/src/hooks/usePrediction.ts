@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { ApiFailure, predict, type PredictOptions } from "../api/client";
 import type { PredictResponse } from "../api/types";
 
-export type RunOptions = Pick<PredictOptions, "part" | "areaM2" | "region">;
+export type RunOptions = Pick<PredictOptions, "part" | "areaM2" | "region" | "detect">;
 
 export type State =
   | { status: "idle" }

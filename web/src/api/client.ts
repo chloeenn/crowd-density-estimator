@@ -56,6 +56,8 @@ export interface PredictOptions {
   areaM2?: number;
   /** Polygon (x, y as 0-1 fractions of the photo) that the area belongs to. */
   region?: Point[];
+  /** Also ask for labelled object boxes (only when the server has a detector). */
+  detect?: boolean;
   signal?: AbortSignal;
   onUploadProgress?: (fraction: number) => void;
 }
@@ -68,6 +70,7 @@ export async function predict(file: Blob, opts: PredictOptions = {}): Promise<Pr
       params: {
         ...(opts.part ? { part: opts.part } : {}),
         ...(opts.areaM2 ? { area_m2: opts.areaM2 } : {}),
+        ...(opts.detect ? { detect: true } : {}),
         ...(opts.areaM2 && opts.region ? { region: JSON.stringify(opts.region) } : {}),
       },
       signal: opts.signal,

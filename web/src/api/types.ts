@@ -36,6 +36,15 @@ export interface PredictResponse {
   model: { version: string; part: string; git_sha: string };
   heatmap: string;
   inference_ms: number;
+  detections?: Detection[] | null;
+  /** The photo with labelled boxes, as a data URI. Present only when detection was requested. */
+  detections_image?: string | null;
+}
+
+export interface Detection {
+  label: string;
+  confidence: number;
+  box: [number, number, number, number];
 }
 
 export interface ModelDetail {
@@ -54,5 +63,6 @@ export interface Metadata {
   thresholds: Thresholds;
   density_bands: DensityBands;
   routing_threshold: number | null;
+  detector_enabled?: boolean;
   limits: { max_upload_mb: number; allowed_content_types: string[] };
 }
