@@ -51,9 +51,27 @@ defaults.
 | `MAX_CONCURRENT_INFERENCE` | `1` | Predictions running at once |
 | `MAX_QUEUE` | `4` | Requests allowed to wait. Beyond that the API answers `503` with a `Retry-After` header |
 | `CORS_ORIGINS` | `http://localhost:5173` | Browser origins allowed to call the API. Never `*` |
+| `DETECTOR_PATH` | not set | YOLO weights for labelled boxes. Setting it enables `?detect=true` and the web **Objects** view |
+| `DETECTOR_CONF` | `0.3` | Lowest confidence a box needs to be shown |
 | `LOG_LEVEL` | `INFO` | Log detail |
 
 A prediction takes about 3 to 4 seconds on one CPU thread for a 1024 × 768 photo.
+
+## Labelled objects
+
+Boxes with class names (person, backpack, car...) come from a separate pretrained YOLO detector, not from the
+crowd models, so it is off until you set it up:
+
+```shell
+pip install ultralytics                       # or: pip install -e ml[detect]
+DETECTOR_PATH=models/yolo11n.pt make api      # ultralytics downloads yolo11n.pt on first use
+```
+
+`?detect=true` then returns `detections` and a `detections_image`, and the web app opens on an **Objects** view.
+Without a detector, `detect=true` returns a 422 (`detector_unavailable`). The detector only finds people it can
+see clearly, so in a dense crowd it labels a small fraction of them. The head count stays the main number.
+
+![Objects view: labelled boxes on Street scene 1](images/objects.png)
 
 ## Privacy
 
